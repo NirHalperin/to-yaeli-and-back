@@ -207,6 +207,10 @@
 
     applyCommitted(anchorWord, scope);
     reactions.set(anchorWord, { reaction, scope });
+    fetch('/api/bookmark?url=' + encodeURIComponent(window.location.href))
+      .then(res => res.json())
+      .then(data => console.log("Saved to API:", data))
+      .catch(err => console.error("API error:", err));
 
     clearTarget();
     closePopupDom();
