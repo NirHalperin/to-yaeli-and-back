@@ -500,9 +500,21 @@
 })();
 console.log("bookmark.js loaded");
 
-fetch('/api/bookmark?url=' + encodeURIComponent(window.location.href))
-  .then(res => res.json())
-  .then(data => {
-    console.log("API response:", data);
-  })
-  .catch(err => console.error("API error:", err));
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('saveBtn');
+
+  if (!btn) {
+    console.error("saveBtn not found");
+    return;
+  }
+
+  btn.addEventListener('click', () => {
+    fetch('/api/bookmark?url=' + encodeURIComponent(window.location.href))
+      .then(res => res.json())
+      .then(data => {
+        console.log("API response:", data);
+        alert('Saved!');
+      })
+      .catch(err => console.error("API error:", err));
+  });
+});
