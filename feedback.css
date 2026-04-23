@@ -1,0 +1,178 @@
+/* ===================================================================
+   feedback.css — drop-in widget styles for the Ad Yaeli feedback layer.
+   Any page that includes <link rel="stylesheet" href="feedback.css">
+   and marks its article as <article class="story feedback-enabled">
+   will pick these up.
+   (2x popup scale — April 2026)
+   =================================================================== */
+
+/* Every word becomes a tappable span. Color transitions fade in/out. */
+.word {
+  cursor: pointer;
+  color: inherit;
+  transition: color 220ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Transient selection (before commit) and permanent commit share ink-red */
+.word.target,
+.word.committed {
+  color: #7e1f1f;
+}
+
+/* ===== Popup (2x scale) ===== */
+.fb-popup {
+  position: absolute;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  border-radius: 28px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 160ms ease-out, transform 160ms ease-out;
+  direction: rtl;
+  user-select: none;
+  -webkit-user-select: none;
+  max-width: calc(100vw - 16px);
+}
+.fb-popup.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.fb-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.fb-hint {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 8px;
+  margin-top: 4px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: normal;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  direction: rtl;
+  max-width: 480px;
+}
+.fb-hint-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  stroke: #ffffff;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Arrow pointing up to the anchor word */
+.fb-popup::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: var(--arrow-left, 48px);
+  width: 20px;
+  height: 20px;
+  background: #1a1a1a;
+  border-left: 2px solid #333;
+  border-top: 2px solid #333;
+  transform: rotate(45deg);
+}
+
+.fb-btn {
+  background: #0d0d0d;
+  border: 2px solid transparent;
+  border-radius: 20px;
+  cursor: pointer;
+  padding: 0;
+  color: #e8e8e8;
+  transition: background 120ms ease-out, border-color 120ms ease-out,
+              opacity 120ms ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.fb-btn:hover:not(:disabled) { background: #1f1f1f; }
+.fb-btn:active:not(:disabled) { background: #262626; }
+.fb-btn:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+.fb-btn.selected {
+  background: #1f0d0d;
+  border-color: #7e1f1f;
+}
+
+/* Reaction buttons — house the uploaded icon (2x, -20%) */
+.fb-btn-reaction {
+  width: 90px;
+  height: 90px;
+  background: #f5f5f5;
+}
+.fb-btn-reaction:hover:not(:disabled) { background: #fff; }
+.fb-btn-reaction:active:not(:disabled) { background: #eaeaea; }
+.fb-btn-reaction.selected {
+  background: #fff;
+  border-color: #7e1f1f;
+}
+.fb-btn-reaction img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  border-radius: 20px;
+}
+
+/* Secondary buttons (reset, close) (2x, -20%) */
+.fb-btn-secondary {
+  width: 70px;
+  height: 70px;
+}
+.fb-btn-secondary svg {
+  width: 35px;
+  height: 35px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fb-btn-close svg { width: 38px; height: 38px; stroke-width: 2.2; }
+
+/* Thin divider between reactions and secondary buttons */
+.fb-divider {
+  width: 2px;
+  align-self: stretch;
+  background: #2a2a2a;
+  margin: 8px 4px;
+}
+
+/* Narrow viewport: shrink slightly so the popup fits the phone width */
+@media (max-width: 480px) {
+  .fb-btn-reaction { width: 74px; height: 74px; }
+  .fb-btn-secondary { width: 58px; height: 58px; }
+  .fb-btn-secondary svg { width: 29px; height: 29px; }
+  .fb-btn-close svg { width: 32px; height: 32px; }
+  .fb-popup { padding: 12px; gap: 8px; }
+  .fb-row { gap: 8px; }
+  .fb-hint { font-size: 14px; padding: 10px 12px 6px; gap: 12px; letter-spacing: 0.01em; }
+  .fb-hint-icon { width: 28px; height: 28px; }
+}
+
+/* Prevent accidental text selection while interacting */
+.story.feedback-enabled.fb-active {
+  -webkit-user-select: none;
+  user-select: none;
+}

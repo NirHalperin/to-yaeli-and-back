@@ -1,0 +1,521 @@
+/* ============================================================
+   bookmark.css — drop-in widget styles for the Ad Yaeli bookmark.
+   Include via <link rel="stylesheet" href="bookmark.css">.
+   (April 2026)
+   ============================================================ */
+
+/* ------------- 1. Chip on the top-left of the page ------------- */
+.bm-chip {
+  position: fixed;
+  top: 22px;
+  left: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 500;
+  cursor: pointer;
+  direction: rtl;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bm-chip-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bm-color, #4a4a4a);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 120ms ease-out;
+}
+.bm-chip:hover .bm-chip-icon,
+.bm-chip:active .bm-chip-icon { transform: scale(1.04); }
+
+.bm-chip-icon .bm-number {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+.bm-chip-label {
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 15px;
+  color: #e8e8e8;
+  max-width: 88px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 0;
+}
+.bm-chip-label:empty { display: none; }
+
+@media (max-width: 480px) {
+  .bm-chip { top: 16px; left: 16px; }
+  .bm-chip-icon { width: 60px; height: 60px; border-radius: 15px; }
+  .bm-chip-icon .bm-number { font-size: 22px; }
+  .bm-chip-label { font-size: 13px; max-width: 70px; }
+}
+
+/* ------------- 2. Backdrop ------------- */
+.bm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 900;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+.bm-backdrop.visible { opacity: 1; }
+
+/* ------------- 3. Modal base ------------- */
+.bm-modal {
+  position: fixed;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  border-radius: 28px;
+  color: #e8e8e8;
+  direction: rtl;
+  font-family: "Frank Ruhl Libre", serif;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 8px));
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  top: 50%;
+  left: 50%;
+  user-select: none;
+  -webkit-user-select: none;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.bm-modal.visible { opacity: 1; transform: translate(-50%, -50%); }
+
+/* Close button — dark rounded square with X, matches ref2/ref3 */
+.bm-btn-close {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #0d0d0d;
+  border: 2px solid #333;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms;
+}
+.bm-btn-close:hover { background: #1f1f1f; }
+.bm-btn-close svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ------------- 4. Resume popup (ref2) ------------- */
+.bm-popup-resume {
+  padding: 18px 20px;
+  width: min(560px, calc(100vw - 32px));
+}
+.bm-resume-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.bm-resume-title {
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 20px;
+  color: #ffffff;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.bm-resume-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #222;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 15px;
+  direction: rtl;
+  text-align: right;
+  outline: none;
+  transition: border-color 120ms;
+}
+.bm-resume-input:focus { border-color: #888; }
+.bm-resume-input.error { border-color: #c94b4b; }
+.bm-resume-input::placeholder { color: #a8a8a8; }
+
+.bm-popup-resume .bm-btn-close {
+  flex: 0 0 auto;
+}
+
+/* V (confirm) button that appears on match */
+.bm-btn-check {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 2px solid #ffffff;
+  color: #111;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms, transform 120ms;
+}
+.bm-btn-check[hidden] { display: none; }
+.bm-btn-check:hover { background: #f0f0f0; }
+.bm-btn-check:active { transform: scale(0.96); }
+.bm-btn-check svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bm-resume-error {
+  margin-top: 8px;
+  color: #e89090;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  min-height: 16px;
+  text-align: right;
+}
+
+.bm-resume-create-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bm-btn-outline {
+  background: transparent;
+  border: 2px solid #666;
+  border-radius: 14px;
+  color: #fff;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 16px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.bm-btn-outline:hover { background: #1f1f1f; border-color: #888; }
+
+/* ------------- 5. Create modal (ref3) ------------- */
+.bm-popup-create {
+  padding: 22px;
+  width: min(760px, calc(100vw - 24px));
+}
+.bm-create-grid {
+  display: grid;
+  grid-template-columns: 48px 1fr 1fr;
+  grid-template-areas:
+    "close preview instructions"
+    "slider slider slider"
+    "dots dots dots"
+    "confirm confirm confirm";
+  gap: 18px 20px;
+  align-items: start;
+}
+.bm-create-grid .bm-btn-close { grid-area: close; }
+
+.bm-create-preview {
+  grid-area: preview;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  min-width: 140px;
+  justify-self: center;
+}
+.bm-create-preview-label {
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 16px;
+  color: #bbb;
+}
+.bm-preview-icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: var(--bm-color, #888);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bm-preview-icon .bm-number {
+  color: #fff;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 32px;
+  font-weight: 600;
+}
+.bm-name-input {
+  background: transparent;
+  border: 2px solid #666;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #fff;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 16px;
+  direction: rtl;
+  text-align: right;
+  outline: none;
+  width: 190px;
+  max-width: 100%;
+  transition: border-color 120ms;
+}
+.bm-name-input:focus { border-color: #aaa; }
+.bm-name-input.error { border-color: #c94b4b; }
+.bm-name-input::placeholder { color: #8a8a8a; }
+
+.bm-name-error {
+  margin-top: 4px;
+  color: #e89090;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  min-height: 15px;
+  width: 190px;
+  text-align: right;
+}
+
+.bm-create-instructions {
+  grid-area: instructions;
+  text-align: right;
+  direction: rtl;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #e8e8e8;
+}
+.bm-create-instructions h3 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 500;
+  color: #fff;
+}
+.bm-create-instructions ol {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.bm-create-instructions li {
+  counter-increment: step;
+  margin-bottom: 6px;
+  padding-right: 28px;
+  position: relative;
+}
+.bm-create-instructions li::before {
+  content: counter(step) ".";
+  position: absolute;
+  right: 0;
+  top: 0;
+  color: #fff;
+  opacity: 0.85;
+}
+
+/* Slider */
+.bm-slider-row {
+  grid-area: slider;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #2a2a2a;
+}
+.bm-slider-viewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.bm-slider-track {
+  display: flex;
+  gap: 16px;
+  transition: transform 260ms ease;
+  will-change: transform;
+}
+.bm-slider-item {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: var(--bm-color, #555);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid transparent;
+  transition: transform 120ms, border-color 120ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.bm-slider-item:hover { transform: scale(1.05); }
+.bm-slider-item.selected { border-color: #ffffff; }
+.bm-slider-item .bm-number {
+  color: #fff;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.bm-slider-arrow {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 120ms, opacity 120ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.bm-slider-arrow:hover { background: #262626; }
+.bm-slider-arrow:disabled { opacity: 0.25; cursor: not-allowed; }
+.bm-slider-arrow svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Page dots */
+.bm-slider-dots {
+  grid-area: dots;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.bm-slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #444;
+  transition: background 120ms;
+}
+.bm-slider-dot.active { background: #fff; }
+
+/* Confirm button (the V) */
+.bm-confirm-row {
+  grid-area: confirm;
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+.bm-btn-confirm {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid transparent;
+  color: #000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, opacity 120ms, transform 120ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.bm-btn-confirm:hover:not(:disabled) { background: #f0f0f0; }
+.bm-btn-confirm:active:not(:disabled) { transform: scale(0.96); }
+.bm-btn-confirm:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+.bm-btn-confirm svg {
+  width: 30px;
+  height: 30px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Mobile layout: stack preview + instructions */
+@media (max-width: 560px) {
+  .bm-popup-create { padding: 18px; }
+  .bm-create-grid {
+    grid-template-columns: 44px 1fr;
+    grid-template-areas:
+      "close instructions"
+      "preview preview"
+      "slider slider"
+      "dots dots"
+      "confirm confirm";
+    gap: 16px;
+  }
+  .bm-create-instructions { font-size: 15px; }
+  .bm-create-instructions h3 { font-size: 19px; }
+  .bm-preview-icon { width: 76px; height: 76px; border-radius: 19px; }
+  .bm-preview-icon .bm-number { font-size: 28px; }
+  .bm-name-input, .bm-name-error { width: 160px; font-size: 15px; }
+  .bm-slider-item { width: 68px; height: 68px; border-radius: 17px; }
+  .bm-slider-item .bm-number { font-size: 24px; }
+  .bm-slider-arrow { width: 38px; height: 38px; }
+  .bm-slider-arrow svg { width: 18px; height: 18px; }
+  .bm-btn-close { width: 42px; height: 42px; border-radius: 12px; }
+  .bm-btn-close svg { width: 17px; height: 17px; }
+  .bm-btn-confirm { width: 52px; height: 52px; border-radius: 16px; }
+  .bm-btn-confirm svg { width: 26px; height: 26px; }
+
+  /* Resume popup tighter on mobile */
+  .bm-popup-resume { padding: 14px 16px; }
+  .bm-resume-row { gap: 10px; }
+  .bm-resume-title { font-size: 17px; }
+  .bm-resume-input { font-size: 14px; padding: 8px 10px; }
+  .bm-btn-check { width: 42px; height: 42px; border-radius: 12px; }
+  .bm-btn-check svg { width: 19px; height: 19px; }
+}
+
+/* ------------- 6. Toast ------------- */
+.bm-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 180ms, transform 180ms;
+  z-index: 1100;
+  pointer-events: none;
+  direction: rtl;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+.bm-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
