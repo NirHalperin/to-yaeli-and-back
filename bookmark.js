@@ -498,3 +498,11 @@
     installChip();
   }
 })();
+console.log("bookmark.js loaded");
+
+fetch('/api/bookmark?url=' + encodeURIComponent(window.location.href))
+  .then(res => res.json())
+  .then(data => {
+    console.log("API response:", data);
+  })
+  .catch(err => console.error("API error:", err));
