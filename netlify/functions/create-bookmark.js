@@ -20,3 +20,6 @@ export async function handler(event) {
     })
   };
 }
+fetch('/api/bookmark?url=' + encodeURIComponent(window.location.href))
+  .then(res => res.json())
+  .then(data => console.log('API response:', data));
