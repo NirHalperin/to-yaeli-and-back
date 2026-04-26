@@ -605,12 +605,15 @@
   .reading-gate-button { font-size: 20px; padding: 14px 28px; }
 }
 
-/* All siblings AFTER the active gate get blurred + non-interactive.
-   This relies on .reading-gate and the article's other children sharing a parent. */
+/* All siblings AFTER the active gate are hidden entirely.
+   Hard cutoff: no teaser, no scroll past the button — the content
+   below is removed from layout, so the page simply ends at the gate. */
 .reading-gate.active ~ * {
-  filter: blur(7px) brightness(0.55);
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-  transition: filter 220ms ease-out;
+  display: none !important;
+}
+
+/* Give the active gate enough breathing room at the bottom so the page
+   doesn't feel like it ends abruptly right under the button. */
+.reading-gate.active {
+  padding-bottom: 40vh;
 }
