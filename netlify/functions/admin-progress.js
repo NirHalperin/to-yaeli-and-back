@@ -66,7 +66,10 @@ export default async (req) => {
         // Flat fields for easy column-mapping in the dashboard:
         gate_1_at: typeof gt[1] === 'number' ? gt[1] : null,
         gate_2_at: typeof gt[2] === 'number' ? gt[2] : null,
-        gate_3_at: typeof gt[3] === 'number' ? gt[3] : null
+        gate_3_at: typeof gt[3] === 'number' ? gt[3] : null,
+        // Gate 4 = book completion ("סיימתי!" button)
+        gate_4_at: typeof gt[4] === 'number' ? gt[4] : null,
+        completed_at: typeof gt[4] === 'number' ? gt[4] : null
       });
     }
 

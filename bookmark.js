@@ -557,8 +557,10 @@
     const btn = document.createElement('button');
     btn.className = 'reading-gate-button';
     btn.type = 'button';
-    btn.textContent = 'להמשיך לקרוא';
-    btn.addEventListener('click', () => onGateClick(gateNum, btn));
+    // data-cta lets a specific gate override the default label (e.g. "סיימתי!" on the completion gate).
+    const customCta = el.getAttribute('data-cta');
+    btn.textContent = customCta && customCta.trim() ? customCta.trim() : 'להמשיך לקרוא';
+    btn.addEventListener('click', () => onGateClick(gateNum, btn, el));
     el.appendChild(btn);
   }
 
@@ -681,11 +683,22 @@
     }
   }
 
-  async function onGateClick(gateNum, btnEl) {
+  // Fire the end-of-book hook AFTER progress is recorded.
+  // The future modal lives outside this file and registers via window.__bmOnCompleteBook.
+  function maybeFireCompletion(gateEl) {
+    if (!gateEl) return;
+    if (gateEl.getAttribute('data-completion') !== '1') return;
+    if (typeof window.__bmOnCompleteBook === 'function') {
+      try { window.__bmOnCompleteBook({ ...state }); } catch (_) {}
+    }
+  }
+
+  async function onGateClick(gateNum, btnEl, gateEl) {
     if (btnEl) btnEl.disabled = true;
 
     if (state.has_created && state.bookmark_id) {
       await recordGateProgress(gateNum);
+      maybeFireCompletion(gateEl);
       return;
     }
 
@@ -704,6 +717,7 @@
       }
       // Whether committed or auto-assigned, record the gate now.
       await recordGateProgress(gateNum);
+      maybeFireCompletion(gateEl);
     });
   }
 
