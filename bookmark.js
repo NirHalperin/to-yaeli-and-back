@@ -683,6 +683,25 @@
     }
   }
 
+  // Small modal that tells caught-up readers "more chapters coming soon".
+  // Used while the book is still being uploaded; flipped to the real
+  // end-of-book celebration once all chapters are live.
+  function openComingSoonModal() {
+    const el = document.createElement('div');
+    el.className = 'bm-modal bm-popup-coming-soon';
+    el.innerHTML = `
+      <button class="bm-btn-close" aria-label="סגור">
+        <svg viewBox="0 0 24 24"><path d="M6 6L18 18M18 6L6 18"/></svg>
+      </button>
+      <div class="bm-coming-soon-body">
+        <div class="bm-coming-soon-title">פרקים נוספים יעלו בקרוב</div>
+      </div>
+    `;
+    el.addEventListener('click', (e) => e.stopPropagation());
+    el.querySelector('.bm-btn-close').addEventListener('click', closeModal);
+    showModal(el);
+  }
+
   // Fire the end-of-book hook AFTER progress is recorded.
   // The future modal lives outside this file and registers via window.__bmOnCompleteBook.
   function maybeFireCompletion(gateEl) {
@@ -693,12 +712,20 @@
     }
   }
 
+  // "Caught up — more coming" handler for the temporary last gate.
+  function maybeFireEndOfAvailable(gateEl) {
+    if (!gateEl) return;
+    if (gateEl.getAttribute('data-end-of-available') !== '1') return;
+    openComingSoonModal();
+  }
+
   async function onGateClick(gateNum, btnEl, gateEl) {
     if (btnEl) btnEl.disabled = true;
 
     if (state.has_created && state.bookmark_id) {
       await recordGateProgress(gateNum);
       maybeFireCompletion(gateEl);
+      maybeFireEndOfAvailable(gateEl);
       return;
     }
 
@@ -718,6 +745,7 @@
       // Whether committed or auto-assigned, record the gate now.
       await recordGateProgress(gateNum);
       maybeFireCompletion(gateEl);
+      maybeFireEndOfAvailable(gateEl);
     });
   }
 

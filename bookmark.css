@@ -617,3 +617,39 @@
 .reading-gate.active {
   padding-bottom: 40vh;
 }
+
+/* ============================================================
+   "Coming soon" modal — temporary end-of-available card.
+   Used while more chapters are still being uploaded; replaced
+   by the celebratory end-of-book modal when the book is complete.
+   ============================================================ */
+.bm-popup-coming-soon {
+  width: min(440px, calc(100vw - 32px));
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.bm-popup-coming-soon .bm-btn-close {
+  align-self: flex-start;
+}
+
+.bm-coming-soon-body {
+  text-align: center;
+  padding: 8px 12px 20px;
+}
+
+.bm-coming-soon-title {
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 24px;
+  font-weight: 500;
+  color: #f5e9d6;
+  line-height: 1.4;
+  text-shadow: 0 0 18px rgba(255, 218, 170, 0.18);
+}
+
+@media (max-width: 480px) {
+  .bm-popup-coming-soon { padding: 16px 18px; }
+  .bm-coming-soon-title { font-size: 20px; }
+}
