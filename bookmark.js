@@ -300,6 +300,11 @@
       applyGateState();
       closeModal();
       toast(`ברוך שובך, ${bm.name}`);
+      // Tell feedback.js (and anyone else listening) to reload this
+      // bookmark's data — e.g. their previously-saved reactions.
+      try {
+        window.dispatchEvent(new CustomEvent('bm:identity-changed', { detail: { ...state } }));
+      } catch (_) {}
     }
 
     showModal(el);
@@ -502,6 +507,9 @@
         if (typeof window.__bmOnCreateCommit === 'function') {
           try { window.__bmOnCreateCommit(state); } catch (_) {}
         }
+        try {
+          window.dispatchEvent(new CustomEvent('bm:identity-changed', { detail: { ...state } }));
+        } catch (_) {}
       } catch (e) {
         if (String(e.message) === 'name_taken') {
           nameInput.classList.add('error');
@@ -659,6 +667,9 @@
         };
         saveState();
         renderChip();
+        try {
+          window.dispatchEvent(new CustomEvent('bm:identity-changed', { detail: { ...state } }));
+        } catch (_) {}
         return bm;
       } catch (e) {
         if (String(e.message) === 'name_taken') continue;
@@ -718,6 +729,50 @@
     if (gateEl.getAttribute('data-end-of-available') !== '1') return;
     openComingSoonModal();
   }
+
+  /* ===== 9.6. Public helpers for other widgets =====
+     Other scripts (feedback.js) need two things:
+       - ensureBookmark(): "I'm about to record something, make sure
+         the reader has a bookmark first." Mirrors the gate flow:
+         show create modal → on dismiss, auto-assign → resolve.
+       - "bm:identity-changed" event: fired whenever bookmark identity
+         changes (created, matched on resume, auto-assigned). Lets
+         feedback.js re-fetch this user's reactions on resume so a
+         reader who types in their old bookmark name gets all their
+         highlights restored. */
+  function dispatchIdentityChanged() {
+    try {
+      window.dispatchEvent(new CustomEvent('bm:identity-changed', { detail: { ...state } }));
+    } catch (_) {}
+  }
+
+  function ensureBookmark() {
+    return new Promise((resolve, reject) => {
+      if (state.has_created && state.bookmark_id) {
+        resolve({ ...state });
+        return;
+      }
+      openCreateModalForGate(async ({ committed }) => {
+        if (!committed) {
+          try {
+            const bm = await autoAssignBookmark();
+            toast(`נוצרה לך סימנייה: ${bm.name}`);
+          } catch (e) {
+            toast('משהו השתבש, נסו שוב');
+            reject(e);
+            return;
+          }
+        }
+        // Whether committed or auto-assigned, identity has changed.
+        dispatchIdentityChanged();
+        resolve({ ...state });
+      });
+    });
+  }
+
+  // Expose for feedback.js / future widgets.
+  window.__bmEnsureBookmark = ensureBookmark;
+  window.__bmGetState = () => ({ ...state });
 
   async function onGateClick(gateNum, btnEl, gateEl) {
     if (btnEl) btnEl.disabled = true;
