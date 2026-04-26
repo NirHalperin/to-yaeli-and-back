@@ -159,9 +159,107 @@
   margin: 8px 4px;
 }
 
+/* ===== +טקסט button (third reaction-row option) =====
+   Same footprint as the reaction icons (90px) so the row stays balanced.
+   Outlined-on-dark by default; flips to filled-on-dark when a comment
+   already exists for this passage. */
+.fb-btn-text {
+  width: 90px;
+  height: 90px;
+  background: transparent;
+  border: 2px solid #e8e8e8;
+  color: #e8e8e8;
+  font-family: "Frank Ruhl Libre", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  direction: rtl;
+}
+.fb-btn-text:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #ffffff;
+}
+.fb-btn-text:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.fb-btn-text.has-text {
+  background: #f5f5f5;
+  color: #1a1a1a;
+  border-color: #f5f5f5;
+}
+.fb-btn-text.has-text:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+/* ===== Text input row =====
+   Sits underneath the reaction row. Hidden by default; revealed when
+   the user clicks +טקסט or when reopening a passage that already has
+   a comment. Appears on its own line (flex-direction: column on .fb-popup). */
+.fb-text-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 4px 4px 0;
+  direction: rtl;
+}
+.fb-text-row[hidden] { display: none; }
+
+.fb-text-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  max-height: 180px;
+  resize: vertical;
+  background: #0d0d0d;
+  border: 2px solid #2a2a2a;
+  border-radius: 16px;
+  padding: 10px 14px;
+  color: #f5f5f5;
+  font-family: "Frank Ruhl Libre", "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.5;
+  direction: rtl;
+  outline: none;
+  transition: border-color 120ms ease-out, background 120ms ease-out;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.fb-text-input::placeholder {
+  color: #6a6a6a;
+  font-family: "Frank Ruhl Libre", "Times New Roman", serif;
+}
+.fb-text-input:focus {
+  border-color: #7e1f1f;
+  background: #141414;
+}
+
+/* ✓ confirm button — light pill matching the reaction-icon background.
+   Same 70px footprint as the reset/close secondary buttons so the row
+   reads as a sibling control, just with brighter ink. */
+.fb-btn-text-confirm {
+  width: 70px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background: #f5f5f5;
+  color: #1a1a1a;
+}
+.fb-btn-text-confirm:hover:not(:disabled) { background: #ffffff; }
+.fb-btn-text-confirm:active:not(:disabled) { background: #eaeaea; }
+.fb-btn-text-confirm svg {
+  width: 32px;
+  height: 32px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Narrow viewport: shrink slightly so the popup fits the phone width */
 @media (max-width: 480px) {
   .fb-btn-reaction { width: 74px; height: 74px; }
+  .fb-btn-text     { width: 74px; height: 74px; font-size: 18px; }
   .fb-btn-secondary { width: 58px; height: 58px; }
   .fb-btn-secondary svg { width: 29px; height: 29px; }
   .fb-btn-close svg { width: 32px; height: 32px; }
@@ -169,6 +267,9 @@
   .fb-row { gap: 8px; }
   .fb-hint { font-size: 14px; padding: 10px 12px 6px; gap: 12px; letter-spacing: 0.01em; }
   .fb-hint-icon { width: 28px; height: 28px; }
+  .fb-text-input { font-size: 16px; min-height: 56px; padding: 8px 12px; }
+  .fb-btn-text-confirm { width: 58px; }
+  .fb-btn-text-confirm svg { width: 26px; height: 26px; }
 }
 
 /* Prevent accidental text selection while interacting */

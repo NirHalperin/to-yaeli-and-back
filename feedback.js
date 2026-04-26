@@ -1,17 +1,22 @@
 /* ===================================================================
    feedback.js — drop-in widget for the Ad Yaeli feedback layer.
 
-   Any page that loads this script will auto-activate on every
-   <article class="story feedback-enabled"> it finds.
+   Each tap on a word opens a popup with three save paths:
+     אהבתי / לשפר        — commit a reaction
+     +טקסט               — open a textarea, type, ✓ to commit a comment
+     reset (↶)           — drop the whole feedback for this passage
+     close (✕)           — dismiss without saving
+
+   Reactions and comments are not exclusive — both flow into the SAME
+   record on the server (one record per highlighted passage). Tapping
+   a previously-committed passage reopens the popup pre-filled with
+   whichever pieces already exist.
 
    Persistence:
-     - Reactions are saved to /api/reaction (POST/DELETE/GET).
-     - Identity comes from bookmark.js — we read it via
-       window.__bmGetState() and ensure it exists by calling
-       window.__bmEnsureBookmark() (which auto-assigns on dismiss).
-     - On page load (and on every "bm:identity-changed" event) we
-       refetch this user's reactions and re-paint the .committed
-       highlights so they survive across devices.
+     - /api/reaction is now an upsert keyed by (bookmark_id, anchor_id).
+     - Identity comes from bookmark.js (window.__bmGetState /
+       window.__bmEnsureBookmark). On "bm:identity-changed" we refetch
+       this user's records so highlights survive across devices.
    =================================================================== */
 
 (function () {
@@ -20,10 +25,10 @@
   const stories = document.querySelectorAll('.story.feedback-enabled');
   if (stories.length === 0) return;
 
-  /* ---------- 1. Wrap every word in <span class="word"> + stamp anchor IDs ----------
+  /* ---------- 1. Wrap every word + stamp anchor IDs ----------
      Anchor ID format: "p<paragraphIdx>w<wordIdx>" — stable as long as
      the source text doesn't shift around. Lets us re-paint highlights
-     on reload by querying [data-anchor-id="..."]. */
+     on reload via [data-anchor-id="..."]. */
   stories.forEach((story) => {
     const paragraphs = Array.from(story.querySelectorAll('p:not(.break)'));
     paragraphs.forEach((p, pIdx) => {
@@ -50,16 +55,25 @@
     });
   });
 
-  /* ---------- 2. State ---------- */
+  /* ---------- 2. State ----------
+     reactions: Map<anchorEl, { reaction: 'love'|'improve'|null,
+                                comment: string,
+                                scope: 'word'|'paragraph'|'scene' }> */
   let popup = null;
   let anchorWord = null;
   let scope = null;
   let editingAnchor = null;
-  // Map<anchorEl, { reaction, scope, id }>  — `id` is the server-side reaction id.
   const reactions = new Map();
-  let busy = false;  // simple in-flight guard so double-clicks don't double-save
+  let busy = false;
 
-  /* ---------- 3. Scope helpers ---------- */
+  /* ---------- 3. Tiny utils ---------- */
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  /* ---------- 4. Scope helpers ---------- */
   function getParagraphOf(wordEl) { return wordEl.closest('p'); }
 
   /**
@@ -93,11 +107,7 @@
     return [];
   }
 
-  /* Capture the actual text the reader highlighted, so it lands in the
-     dashboard exactly as written. We use textContent at the paragraph
-     level (or concatenated paragraphs for a scene) to preserve original
-     punctuation/whitespace — joining individual word spans drops
-     niceties like commas-before-spaces. */
+  /* Capture the highlighted text exactly as it appears on the page. */
   function getScopeText(anchor, scopeName) {
     if (scopeName === 'word') return (anchor.textContent || '').trim();
     const para = getParagraphOf(anchor);
@@ -108,7 +118,7 @@
     return '';
   }
 
-  /* ---------- 4. Target (transient selection) visuals ---------- */
+  /* ---------- 5. Visuals ---------- */
   function applyTarget(anchor, scopeName) {
     clearTarget();
     getScopeWords(anchor, scopeName).forEach((w) => w.classList.add('target'));
@@ -117,7 +127,6 @@
     document.querySelectorAll('.word.target').forEach((w) => w.classList.remove('target'));
   }
 
-  /* ---------- 5. Commit / reset (permanent visuals) ---------- */
   function applyCommitted(anchor, scopeName) {
     getScopeWords(anchor, scopeName).forEach((w) => w.classList.add('committed'));
   }
@@ -144,10 +153,20 @@
     popup = document.createElement('div');
     popup.className = 'fb-popup';
     const currentReaction = options.currentReaction || null;
+    const currentComment = options.currentComment || '';
     const isEditing = !!options.isEditing;
+    const startWithTextOpen = isEditing && !!currentComment;
 
+    /* Source order matters: this row sits inside an RTL container,
+       so visual L→R becomes [close, reset, divider, improve, love, +טקסט].
+       That matches the UI where +טקסט lives on the far right (the
+       reader's reading-start side in Hebrew). */
     popup.innerHTML = `
       <div class="fb-row">
+        <button class="fb-btn fb-btn-text ${startWithTextOpen || currentComment ? 'has-text' : ''}"
+                data-action="text" aria-label="הוסף טקסט">
+          +טקסט
+        </button>
         <button class="fb-btn fb-btn-reaction ${currentReaction === 'love' ? 'selected' : ''}"
                 data-action="love" aria-label="אהבתי">
           <img src="Love It.png" alt="אהבתי" draggable="false" />
@@ -159,7 +178,7 @@
         <div class="fb-divider"></div>
         <button class="fb-btn fb-btn-secondary fb-btn-reset"
                 data-action="reset" aria-label="איפוס"
-                ${currentReaction ? '' : 'disabled'}>
+                ${(currentReaction || currentComment) ? '' : 'disabled'}>
           <svg viewBox="0 0 24 24">
             <path d="M3 12a9 9 0 1 0 3-6.7"/>
             <polyline points="3 4 3 10 9 10"/>
@@ -169,6 +188,18 @@
                 data-action="close" aria-label="סגור">
           <svg viewBox="0 0 24 24">
             <path d="M6 6L18 18M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="fb-text-row" ${startWithTextOpen ? '' : 'hidden'}>
+        <textarea class="fb-text-input"
+                  placeholder="כמה מילים על הקטע…"
+                  dir="rtl"
+                  rows="2"
+                  maxlength="600">${escapeHtml(currentComment)}</textarea>
+        <button class="fb-btn fb-btn-text-confirm" data-action="text-submit" aria-label="אישור">
+          <svg viewBox="0 0 24 24">
+            <polyline points="4 12 10 18 20 6"/>
           </svg>
         </button>
       </div>
@@ -183,9 +214,23 @@
       `}
     `;
     document.body.appendChild(popup);
+
+    if (startWithTextOpen) hideHint();
+
     positionPopup();
     requestAnimationFrame(() => popup.classList.add('visible'));
     popup.addEventListener('click', onPopupClick);
+
+    // Submit on Enter (Shift+Enter inserts newline)
+    const textarea = popup.querySelector('.fb-text-input');
+    if (textarea) {
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitComment();
+        }
+      });
+    }
   }
 
   function closePopupDom() {
@@ -193,6 +238,12 @@
       popup.remove();
       popup = null;
     }
+  }
+
+  function hideHint() {
+    if (!popup) return;
+    const hint = popup.querySelector('.fb-hint');
+    if (hint) hint.style.display = 'none';
   }
 
   function positionPopup() {
@@ -229,8 +280,28 @@
     const action = btn.dataset.action;
 
     if (action === 'love' || action === 'improve') commitReaction(action);
+    else if (action === 'text') toggleTextRow();
+    else if (action === 'text-submit') submitComment();
     else if (action === 'reset') resetReaction();
     else if (action === 'close') closeSelection();
+  }
+
+  function toggleTextRow() {
+    if (!popup) return;
+    const row = popup.querySelector('.fb-text-row');
+    if (!row) return;
+    const textarea = row.querySelector('.fb-text-input');
+    if (row.hasAttribute('hidden')) {
+      row.removeAttribute('hidden');
+      hideHint();
+      // Reposition since the popup just got taller
+      requestAnimationFrame(positionPopup);
+    }
+    if (textarea) {
+      textarea.focus();
+      const len = textarea.value.length;
+      textarea.selectionStart = textarea.selectionEnd = len;
+    }
   }
 
   /* ---------- 8. API helpers ---------- */
@@ -248,11 +319,11 @@
     throw new Error('bookmark_unavailable');
   }
 
-  async function apiCreateReaction({ bookmark_id, reaction, scope, text, anchor_id }) {
+  async function apiUpsertReaction(payload) {
     const res = await fetch(REACTION_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ bookmark_id, reaction, scope, text, anchor_id })
+      body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -263,8 +334,8 @@
     return data;
   }
 
-  async function apiDeleteReaction({ bookmark_id, id }) {
-    const url = `${REACTION_API}?bookmark_id=${encodeURIComponent(bookmark_id)}&id=${encodeURIComponent(id)}`;
+  async function apiDeleteReaction({ bookmark_id, anchor_id }) {
+    const url = `${REACTION_API}?bookmark_id=${encodeURIComponent(bookmark_id)}&anchor_id=${encodeURIComponent(anchor_id)}`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -282,107 +353,128 @@
     return Array.isArray(data.reactions) ? data.reactions : [];
   }
 
-  /* ---------- 9. Commit + reset (now persisted) ---------- */
+  /* ---------- 9. Save flows ---------- */
+
+  /* Reaction click — saves reaction + any drafted (unsubmitted) text
+     in the textarea, so the user never loses what they were typing. */
   async function commitReaction(reaction) {
     if (busy) return;
     if (!anchorWord || !scope) return;
     busy = true;
 
-    // Snapshot the working selection before the modal flow
-    // potentially nukes them via DOM churn or focus changes.
     const localAnchor = anchorWord;
     const localScope = scope;
-    const localEditing = editingAnchor;
+    const text = getScopeText(localAnchor, localScope);
+    const anchor_id = localAnchor.dataset.anchorId || '';
+
+    // Pick up any in-flight text typed but not yet ✓-submitted.
+    const textarea = popup ? popup.querySelector('.fb-text-input') : null;
+    const draftComment = textarea ? (textarea.value || '').trim() : '';
+
+    let bm;
+    try { bm = await ensureBookmark(); }
+    catch (e) { busy = false; return; }
+
+    const payload = {
+      bookmark_id: bm.bookmark_id,
+      anchor_id,
+      scope: localScope,
+      text,
+      reaction
+    };
+    if (draftComment) payload.comment = draftComment;
+
+    try {
+      const saved = await apiUpsertReaction(payload);
+      applyCommitted(localAnchor, localScope);
+      reactions.set(localAnchor, {
+        reaction: saved.reaction || null,
+        comment: saved.comment || '',
+        scope: localScope
+      });
+    } catch (e) {
+      console.error('reaction save failed:', e);
+    } finally {
+      finishPopupSession();
+    }
+  }
+
+  /* ✓ submit — saves the comment alongside any selected reaction. */
+  async function submitComment() {
+    if (busy) return;
+    if (!anchorWord || !scope) return;
+    if (!popup) return;
+    const textarea = popup.querySelector('.fb-text-input');
+    if (!textarea) return;
+    const newComment = (textarea.value || '').trim();
+    if (!newComment) return; // empty submit = no-op
+
+    busy = true;
+    const localAnchor = anchorWord;
+    const localScope = scope;
     const text = getScopeText(localAnchor, localScope);
     const anchor_id = localAnchor.dataset.anchorId || '';
 
     let bm;
-    try {
-      bm = await ensureBookmark();
-    } catch (e) {
-      busy = false;
-      return; // user couldn't get a bookmark — bail silently
-    }
-
-    // If editing an existing reaction → delete the old one first.
-    let oldRecord = null;
-    if (localEditing && reactions.has(localEditing)) {
-      oldRecord = reactions.get(localEditing);
-    }
+    try { bm = await ensureBookmark(); }
+    catch (e) { busy = false; return; }
 
     try {
-      const saved = await apiCreateReaction({
+      const saved = await apiUpsertReaction({
         bookmark_id: bm.bookmark_id,
-        reaction,
+        anchor_id,
         scope: localScope,
         text,
-        anchor_id
+        comment: newComment
       });
-
-      if (oldRecord) {
-        // Best-effort: remove the previous server record. We don't
-        // block the UX on this; if it fails, the user has a duplicate
-        // server-side which the dashboard will show — we'll fix on
-        // reload, since the in-memory map only points at the new one.
-        try {
-          await apiDeleteReaction({ bookmark_id: bm.bookmark_id, id: oldRecord.id });
-        } catch (_) {}
-        removeCommitted(localEditing, oldRecord.scope);
-        reactions.delete(localEditing);
-      }
-
       applyCommitted(localAnchor, localScope);
-      reactions.set(localAnchor, { reaction, scope: localScope, id: saved.id });
+      reactions.set(localAnchor, {
+        reaction: saved.reaction || null,
+        comment: saved.comment || '',
+        scope: localScope
+      });
     } catch (e) {
-      // Saving failed — don't paint a committed state we can't reload.
-      console.error('reaction save failed:', e);
+      console.error('comment save failed:', e);
     } finally {
-      clearTarget();
-      closePopupDom();
-      anchorWord = null;
-      scope = null;
-      editingAnchor = null;
-      busy = false;
+      finishPopupSession();
     }
   }
 
+  /* Reset — drops the entire feedback record (both reaction + comment). */
   async function resetReaction() {
     if (busy) return;
-    if (!editingAnchor || !reactions.has(editingAnchor)) {
-      // Nothing committed — just close without API call.
-      clearTarget();
-      closePopupDom();
-      anchorWord = null; scope = null; editingAnchor = null;
+    const localEditing = editingAnchor;
+    if (!localEditing || !reactions.has(localEditing)) {
+      // Nothing committed yet — just close.
+      finishPopupSession();
       return;
     }
     busy = true;
-    const localEditing = editingAnchor;
     const old = reactions.get(localEditing);
     const bm = getBookmarkState();
+    const anchor_id = localEditing.dataset.anchorId || '';
     try {
-      if (bm && bm.bookmark_id && old.id) {
-        await apiDeleteReaction({ bookmark_id: bm.bookmark_id, id: old.id });
+      if (bm && bm.bookmark_id && anchor_id) {
+        await apiDeleteReaction({ bookmark_id: bm.bookmark_id, anchor_id });
       }
       removeCommitted(localEditing, old.scope);
       reactions.delete(localEditing);
     } catch (e) {
       console.error('reaction delete failed:', e);
     } finally {
-      clearTarget();
-      closePopupDom();
-      anchorWord = null;
-      scope = null;
-      editingAnchor = null;
-      busy = false;
+      finishPopupSession();
     }
   }
 
-  function closeSelection() {
+  function closeSelection() { finishPopupSession(); }
+
+  function finishPopupSession() {
     clearTarget();
     closePopupDom();
     anchorWord = null;
     scope = null;
     editingAnchor = null;
+    busy = false;
   }
 
   /* ---------- 10. Restore on load + on identity change ---------- */
@@ -390,28 +482,25 @@
     const bm = getBookmarkState();
     if (!bm || !bm.bookmark_id) return;
     let list;
-    try {
-      list = await apiListReactions(bm.bookmark_id);
-    } catch (_) { return; }
+    try { list = await apiListReactions(bm.bookmark_id); }
+    catch (_) { return; }
 
-    // Wipe the local view first so a re-paint after a resume doesn't
-    // double-paint or leave stale highlights from a previous bookmark.
     clearAllCommitted();
 
     list.forEach((r) => {
       if (!r.anchor_id || !r.scope) return;
       const anchor = document.querySelector(`.word[data-anchor-id="${CSS.escape(r.anchor_id)}"]`);
-      if (!anchor) return;  // anchor not on this page (e.g. text changed); skip
+      if (!anchor) return;
       applyCommitted(anchor, r.scope);
-      reactions.set(anchor, { reaction: r.reaction, scope: r.scope, id: r.id });
+      reactions.set(anchor, {
+        reaction: r.reaction || null,
+        comment: r.comment || '',
+        scope: r.scope
+      });
     });
   }
 
-  // Fire on load (bookmark.js may set state synchronously from
-  // localStorage; if so we'll have it already) and on every identity
-  // change (resume → fresh fetch of that bookmark's reactions).
   window.addEventListener('bm:identity-changed', loadReactionsForCurrentBookmark);
-  // Tiny delay to let bookmark.js's IIFE finish if scripts load close together.
   setTimeout(loadReactionsForCurrentBookmark, 0);
 
   /* ---------- 11. Master click handler ---------- */
@@ -419,7 +508,6 @@
     if (popup && popup.contains(e.target)) return;
 
     const word = e.target.closest('.word');
-
     if (word && !word.closest('.story.feedback-enabled')) return;
 
     if (!word) {
@@ -447,7 +535,11 @@
       anchorWord = committed.anchor;
       scope = committed.data.scope;
       applyTarget(anchorWord, scope);
-      openPopup({ currentReaction: committed.data.reaction, isEditing: true });
+      openPopup({
+        currentReaction: committed.data.reaction,
+        currentComment: committed.data.comment || '',
+        isEditing: true
+      });
       return;
     }
 
@@ -456,7 +548,7 @@
     scope = 'word';
     editingAnchor = null;
     applyTarget(anchorWord, scope);
-    openPopup({ currentReaction: null });
+    openPopup({ currentReaction: null, currentComment: '' });
   });
 
   /* ---------- 12. Keep popup anchored on scroll / resize ---------- */
@@ -465,6 +557,13 @@
 
   /* ---------- 13. Escape key closes the popup ---------- */
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && popup) closeSelection();
+    if (e.key === 'Escape' && popup) {
+      // If textarea is focused, let Esc just blur it first; second Esc closes.
+      if (document.activeElement && document.activeElement.classList.contains('fb-text-input')) {
+        document.activeElement.blur();
+        return;
+      }
+      closeSelection();
+    }
   });
 })();

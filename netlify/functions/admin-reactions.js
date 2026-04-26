@@ -1,19 +1,27 @@
 // ============================================================
-// admin-reactions.js (Netlify Function) — Reactions dashboard feed
+// admin-reactions.js (Netlify Function) — Feedback dashboard feed
 //
 // GET    /api/admin/reactions
 // Header: x-admin-key: <ADMIN_KEY env var>
 //
-// Returns every reaction across every bookmark, newest first.
+// Returns every feedback record across every bookmark, newest first.
+// One record per (bookmark_id, anchor_id) — each can carry a reaction,
+// a free-text comment, or both, all marking the same highlighted span.
+//
 // Each row carries:
-//   - reaction          ("love" | "improve")
-//   - display_text      (full text, except scenes are truncated to first sentence)
-//   - text_full         (untruncated original)
-//   - bookmark_name     (the "who" column)
+//   - reaction          ("love" | "improve" | null)
+//   - reaction_label    ("אהבתי" | "לשפר" | null)
+//   - reaction_icon_url ("/Love%20It.png" | "/Make%20Better.png" | null)
+//   - comment           the reader's free text (string, may be "")
+//   - has_text          true if comment is non-empty (handy column for filtering)
+//   - display_text      what they highlighted (scenes truncated to first sentence)
+//   - text_full         untruncated original highlight
+//   - bookmark_name     the "who" column
 //   - bookmark_id
-//   - scope             (word | paragraph | scene)
+//   - scope             ("word" | "paragraph" | "scene")
 //   - anchor_id
-//   - created_at        (epoch ms — Base44 can format this column-side)
+//   - created_at        first-saved time, epoch ms
+//   - updated_at        last-edited time, epoch ms (sort key)
 //
 // This endpoint feeds the Base44 author dashboard. Same x-admin-key
 // auth model as /api/admin/progress.
@@ -42,6 +50,19 @@ function firstSentence(text) {
   return m ? m[0].trim() : String(text).trim();
 }
 
+// Map internal storage codes -> what the reader actually saw on the page.
+// Storage stays in English ("love" / "improve") for URL/code safety; the
+// dashboard gets the Hebrew label + the real icon image so the table
+// looks identical to the in-book popup.
+const REACTION_LABEL = {
+  love: 'אהבתי',
+  improve: 'לשפר'
+};
+const REACTION_ICON = {
+  love: '/Love%20It.png',
+  improve: '/Make%20Better.png'
+};
+
 export default async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: CORS });
@@ -64,20 +85,28 @@ export default async (req) => {
       const r = await reactions.get(b.key, { type: 'json' });
       if (!r) continue;
       const display_text = r.scope === 'scene' ? firstSentence(r.text) : (r.text || '');
+      const reaction = r.reaction || null;
+      const comment = (r.comment || '').toString();
       out.push({
         id: r.id,
-        reaction: r.reaction,
+        reaction,
+        reaction_label: reaction ? (REACTION_LABEL[reaction] || reaction) : null,
+        reaction_icon_url: reaction ? (REACTION_ICON[reaction] || null) : null,
+        comment,
+        has_text: comment.trim() !== '',
         scope: r.scope,
         display_text,
         text_full: r.text || '',
         bookmark_name: r.bookmark_name || '',
         bookmark_id: r.bookmark_id || '',
         anchor_id: r.anchor_id || '',
-        created_at: r.created_at || null
+        created_at: r.created_at || null,
+        updated_at: r.updated_at || r.created_at || null
       });
     }
 
-    out.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    // Newest activity first — updated_at picks up edits, falls back to created_at.
+    out.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
 
     return json({
       count: out.length,
