@@ -7,9 +7,11 @@
 // GET    /api/bookmark?id=<id>                          -> lookup by id
 // GET    /api/bookmark?defaults=1                       -> 20 fresh default names
 //                                                          from active theme tier(s)
-// PUT    /api/bookmark              { id, name?, icon_id?, max_unlocked? }
+// PUT    /api/bookmark              { id, name?, icon_id?, gate_reached?, max_unlocked? }
 //                                                       -> update (rename re-checks
-//                                                          uniqueness)
+//                                                          uniqueness). gate_reached =
+//                                                          furthest gate the reader
+//                                                          has unlocked.
 //
 // Storage:
 //   `bookmarks`       — id           -> bookmark record (json)
@@ -175,7 +177,7 @@ export default async (req) => {
         await names.set(newNorm, id);
       }
 
-      const allowed = ['name', 'icon_id', 'max_unlocked', 'reactions'];
+      const allowed = ['name', 'icon_id', 'gate_reached', 'max_unlocked', 'reactions'];
       for (const k of allowed) {
         if (updates[k] !== undefined) bm[k] = updates[k];
       }
