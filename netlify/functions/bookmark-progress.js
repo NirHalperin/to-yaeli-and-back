@@ -53,10 +53,19 @@ export default async (req) => {
     if (!bm) return json({ error: 'not_found' }, 404);
 
     const current = typeof bm.gate_reached === 'number' ? bm.gate_reached : 0;
+    const now = Date.now();
     if (gate_reached > current) {
       bm.gate_reached = gate_reached;
+      // Record per-gate timestamps. If the reader jumped multiple gates in
+      // one call (rare), we still record `now` for each — best we can do.
+      if (!bm.gate_times || typeof bm.gate_times !== 'object') bm.gate_times = {};
+      for (let g = current + 1; g <= gate_reached; g++) {
+        if (typeof bm.gate_times[g] !== 'number') {
+          bm.gate_times[g] = now;
+        }
+      }
     }
-    bm.last_seen_at = Date.now();
+    bm.last_seen_at = now;
 
     await bookmarks.setJSON(bookmark_id, bm);
     return json(bm);

@@ -151,6 +151,7 @@ export default async (req) => {
         created_at: Date.now(),
         last_seen_at: Date.now(),
         gate_reached: 0,        // furthest "להמשיך לקרוא" gate this reader has unlocked
+        gate_times: {},         // map of gate number -> epoch ms when cleared
         max_unlocked: 4,        // legacy field — kept for back-compat, not used by new gates
         reactions: {}
       };

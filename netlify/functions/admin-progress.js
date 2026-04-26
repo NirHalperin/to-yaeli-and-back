@@ -53,13 +53,20 @@ export default async (req) => {
     for (const b of (blobs || [])) {
       const bm = await bookmarks.get(b.key, { type: 'json' });
       if (!bm) continue;
+      const gt = (bm.gate_times && typeof bm.gate_times === 'object') ? bm.gate_times : {};
       out.push({
         id: bm.id,
         name: bm.name,
         icon_id: bm.icon_id,
         gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : 0,
         created_at: bm.created_at || null,
-        last_seen_at: bm.last_seen_at || null
+        last_seen_at: bm.last_seen_at || null,
+        // Object form (forward-compat as more gates are added):
+        gate_times: gt,
+        // Flat fields for easy column-mapping in the dashboard:
+        gate_1_at: typeof gt[1] === 'number' ? gt[1] : null,
+        gate_2_at: typeof gt[2] === 'number' ? gt[2] : null,
+        gate_3_at: typeof gt[3] === 'number' ? gt[3] : null
       });
     }
 
