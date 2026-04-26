@@ -537,3 +537,80 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* ============================================================
+   Reading Gates — chapter checkpoints
+   Markup: <div class="reading-gate" data-gate="N"></div>
+   States:
+     - default (no class): hidden, layout collapsed (gate not active yet)
+     - .active: shows the "להמשיך לקרוא" button + blurs siblings after
+     - .cleared: hidden again, no blur (gate already passed)
+   ============================================================ */
+
+.reading-gate {
+  display: none;          /* default: invisible — JS adds .active to the first uncleared one */
+  margin: 48px 0 32px;
+  text-align: center;
+}
+
+.reading-gate.active {
+  display: block;
+}
+
+.reading-gate.cleared {
+  display: none;          /* once passed, the gate vanishes entirely */
+}
+
+/* The button itself */
+.reading-gate-button {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 218, 170, 0.55);
+  color: #e8e8e8;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 22px;
+  font-weight: 500;
+  padding: 16px 36px;
+  border-radius: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease-out, box-shadow 180ms ease-out, border-color 180ms;
+  box-shadow:
+    0 0 12px rgba(255, 218, 170, 0.18),
+    0 0 28px rgba(255, 210, 155, 0.10);
+  direction: rtl;
+}
+
+.reading-gate-button:hover,
+.reading-gate-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 218, 170, 0.85);
+  box-shadow:
+    0 0 16px rgba(255, 218, 170, 0.35),
+    0 0 36px rgba(255, 210, 155, 0.22);
+  outline: none;
+}
+
+.reading-gate-button:active {
+  transform: translateY(0);
+}
+
+.reading-gate-button[disabled] {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .reading-gate { margin: 36px 0 28px; }
+  .reading-gate-button { font-size: 20px; padding: 14px 28px; }
+}
+
+/* All siblings AFTER the active gate get blurred + non-interactive.
+   This relies on .reading-gate and the article's other children sharing a parent. */
+.reading-gate.active ~ * {
+  filter: blur(7px) brightness(0.55);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  transition: filter 220ms ease-out;
+}

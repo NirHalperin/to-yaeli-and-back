@@ -7,6 +7,7 @@
 (function () {
   /* ===== 1. Config ===== */
   const API = '/api/bookmark';
+  const PROGRESS_API = '/api/bookmark/progress';
   const STORAGE_KEY = 'ad_yaeli_bookmark';
   const ICONS_PER_PAGE = 4;
   const SLIDER_GAP_PX = 16;
@@ -57,8 +58,11 @@
     bookmark_id: null,
     name: null,
     icon_id: DEFAULT_ICON.id,
-    has_created: false
+    has_created: false,
+    gate_reached: 0
   };
+  // Back-compat: older saved states won't have gate_reached
+  if (typeof state.gate_reached !== 'number') state.gate_reached = 0;
 
   /* ===== 4. Small utils ===== */
   function escapeHtml(s) {
@@ -112,6 +116,17 @@
     } catch (e) {
       return null;
     }
+  }
+
+  async function apiProgress(bookmark_id, gate_reached) {
+    const res = await fetch(PROGRESS_API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bookmark_id, gate_reached })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const err = new Error(data.error || 'api_error'); err.status = res.status; throw err; }
+    return data;
   }
 
   /* ===== 6. Chip (top-left of the landing) ===== */
@@ -277,10 +292,12 @@
         bookmark_id: bm.id,
         name: bm.name,
         icon_id: bm.icon_id,
-        has_created: true
+        has_created: true,
+        gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : 0
       };
       saveState();
       renderChip();
+      applyGateState();
       closeModal();
       toast(`ברוך שובך, ${bm.name}`);
     }
@@ -475,12 +492,16 @@
           bookmark_id: bm.id,
           name: bm.name,
           icon_id: bm.icon_id,
-          has_created: true
+          has_created: true,
+          gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : (state.gate_reached || 0)
         };
         saveState();
         renderChip();
         closeModal();
         toast(editing ? 'הסימנייה עודכנה' : `נוצרה סימנייה: ${state.name}`);
+        if (typeof window.__bmOnCreateCommit === 'function') {
+          try { window.__bmOnCreateCommit(state); } catch (_) {}
+        }
       } catch (e) {
         if (String(e.message) === 'name_taken') {
           nameInput.classList.add('error');
@@ -510,7 +531,183 @@
     window.addEventListener('resize', onResize);
   }
 
-  /* ===== 10. Toast ===== */
+  /* ===== 9.5. Reading Gates =====
+     Markup: <div class="reading-gate" data-gate="N"></div>
+     Behavior:
+       - Find first uncleared gate (data-gate > state.gate_reached). Mark it .active.
+       - .active gate renders the "להמשיך לקרוא" button.
+       - CSS blurs all siblings AFTER the active gate.
+       - Click the button → POST progress (or open create modal if no bookmark yet).
+  */
+
+  function getGates() {
+    return Array.from(document.querySelectorAll('.reading-gate'))
+      .map((el) => ({ el, num: parseInt(el.dataset.gate, 10) }))
+      .filter((g) => Number.isFinite(g.num) && g.num >= 1)
+      .sort((a, b) => a.num - b.num);
+  }
+
+  function clearGateUI(el) {
+    // Remove our injected button so the gate is just an empty div when cleared.
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function renderGateButton(el, gateNum) {
+    clearGateUI(el);
+    const btn = document.createElement('button');
+    btn.className = 'reading-gate-button';
+    btn.type = 'button';
+    btn.textContent = 'להמשיך לקרוא';
+    btn.addEventListener('click', () => onGateClick(gateNum, btn));
+    el.appendChild(btn);
+  }
+
+  function applyGateState() {
+    const gates = getGates();
+    const reached = state.gate_reached || 0;
+
+    // First gate where number > reached is the new active gate.
+    const activeGate = gates.find((g) => g.num > reached);
+
+    gates.forEach((g) => {
+      if (!activeGate || g === activeGate) return;
+      // Cleared gates and gates beyond active — both visually invisible.
+      g.el.classList.remove('active');
+      g.el.classList.add('cleared');
+      clearGateUI(g.el);
+    });
+
+    if (activeGate) {
+      activeGate.el.classList.remove('cleared');
+      activeGate.el.classList.add('active');
+      renderGateButton(activeGate.el, activeGate.num);
+    }
+  }
+
+  async function syncGateStateFromServer() {
+    if (!state.bookmark_id) return;
+    try {
+      const res = await fetch(`${API}?id=${encodeURIComponent(state.bookmark_id)}`);
+      if (!res.ok) return;
+      const bm = await res.json().catch(() => ({}));
+      const serverReached = typeof bm.gate_reached === 'number' ? bm.gate_reached : 0;
+      if (serverReached > (state.gate_reached || 0)) {
+        state.gate_reached = serverReached;
+        saveState();
+        applyGateState();
+      }
+    } catch (_) { /* offline — local state is fine */ }
+  }
+
+  // First-time-reader flow: open the create modal. If they commit a name → great.
+  // If they dismiss the modal (X / backdrop / Escape), we silently auto-assign
+  // a random available default name so they're never blocked from continuing.
+  function openCreateModalForGate(onResolved) {
+    let committed = false;
+    const targetEl = (() => {
+      // Stash the modal element AFTER it gets created so we can observe its removal.
+      // showModal appends to document.body; we'll grab it after rAF.
+      return null;
+    })();
+
+    window.__bmOnCreateCommit = function (newState) {
+      committed = true;
+      window.__bmOnCreateCommit = null;
+      onResolved({ committed: true, state: newState });
+    };
+
+    openCreateModal({ editing: false });
+
+    // Watch for the create modal being removed from DOM. If it disappears
+    // without commit() running, treat it as a dismiss → auto-assign.
+    const observer = new MutationObserver(() => {
+      const stillThere = document.querySelector('.bm-popup-create');
+      if (!stillThere) {
+        observer.disconnect();
+        if (!committed) {
+          window.__bmOnCreateCommit = null;
+          onResolved({ committed: false });
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true });
+  }
+
+  async function autoAssignBookmark() {
+    // Pull a list of currently-available default names from the active theme tier.
+    let names = await apiSuggestedDefaults();
+    if (!names || !names.length) {
+      // Worst-case fallback: synthesize a unique-ish name.
+      names = [`קורא_${Math.random().toString(36).slice(2, 6)}`];
+    }
+    // Pick a random icon (avoid the default owl so each new reader feels distinct).
+    const pickableIcons = ICONS.filter((i) => i.id !== DEFAULT_ICON.id);
+    const icon = pickableIcons[Math.floor(Math.random() * pickableIcons.length)] || DEFAULT_ICON;
+
+    // Try names in order; on collision (race condition), advance to the next.
+    for (const candidate of names) {
+      try {
+        const bm = await apiCreate(candidate, icon.id);
+        state = {
+          bookmark_id: bm.id,
+          name: bm.name,
+          icon_id: bm.icon_id,
+          has_created: true,
+          gate_reached: 0
+        };
+        saveState();
+        renderChip();
+        return bm;
+      } catch (e) {
+        if (String(e.message) === 'name_taken') continue;
+        throw e;
+      }
+    }
+    throw new Error('no_available_names');
+  }
+
+  async function recordGateProgress(gateNum) {
+    if (!state.bookmark_id) return;
+    try {
+      const bm = await apiProgress(state.bookmark_id, gateNum);
+      const serverReached = typeof bm.gate_reached === 'number' ? bm.gate_reached : gateNum;
+      state.gate_reached = Math.max(state.gate_reached || 0, serverReached, gateNum);
+      saveState();
+      applyGateState();
+    } catch (e) {
+      toast('משהו השתבש, נסו שוב');
+      // Re-enable the button so the user can retry.
+      applyGateState();
+    }
+  }
+
+  async function onGateClick(gateNum, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+
+    if (state.has_created && state.bookmark_id) {
+      await recordGateProgress(gateNum);
+      return;
+    }
+
+    // First-time reader (no bookmark yet)
+    openCreateModalForGate(async ({ committed }) => {
+      if (!committed) {
+        // Auto-assign + toast the user about it
+        try {
+          const bm = await autoAssignBookmark();
+          toast(`נוצרה לך סימנייה: ${bm.name}`);
+        } catch (e) {
+          toast('משהו השתבש, נסו שוב');
+          if (btnEl) btnEl.disabled = false;
+          return;
+        }
+      }
+      // Whether committed or auto-assigned, record the gate now.
+      await recordGateProgress(gateNum);
+    });
+  }
+
+
   function toast(msg) {
     const t = document.createElement('div');
     t.className = 'bm-toast';
@@ -524,10 +721,15 @@
   }
 
   /* ===== 11. Init ===== */
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', installChip);
-  } else {
+  function init() {
     installChip();
+    applyGateState();        // Render gates from local state immediately
+    syncGateStateFromServer(); // Then re-sync from server (server wins if higher)
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
 console.log("bookmark.js loaded");
