@@ -13,26 +13,26 @@
 
   /* ===== 2. Icon catalog (placeholders — swap images later) ===== */
   const ICONS = [
-    { id: 'i01', name_default: 'ינשוף',    color: '#8a6f4a' }, // default (owl)
-    { id: 'i02', name_default: 'דוב',      color: '#c97a52' },
-    { id: 'i03', name_default: 'אריה',     color: '#d99a33' },
-    { id: 'i04', name_default: 'חתול',     color: '#b2815b' },
-    { id: 'i05', name_default: 'כלב',      color: '#967150' },
-    { id: 'i06', name_default: 'שועל',     color: '#cb6d3a' },
-    { id: 'i07', name_default: 'ארנב',     color: '#c9a59b' },
-    { id: 'i08', name_default: 'פיל',      color: '#8e9aa7' },
-    { id: 'i09', name_default: 'נמר',      color: '#cc9033' },
-    { id: 'i10', name_default: 'סוס',      color: '#7c5f3f' },
-    { id: 'i11', name_default: 'זאב',      color: '#7a7576' },
-    { id: 'i12', name_default: 'דולפין',   color: '#558fa4' },
-    { id: 'i13', name_default: 'פינגווין', color: '#3a3f46' },
-    { id: 'i14', name_default: 'ציפור',    color: '#6ca3c0' },
-    { id: 'i15', name_default: 'דג',       color: '#4a7a8b' },
-    { id: 'i16', name_default: 'כבשה',     color: '#cfc4b1' },
-    { id: 'i17', name_default: 'פרה',      color: '#a8a8a8' },
-    { id: 'i18', name_default: 'עכבר',     color: '#8f8f8f' },
-    { id: 'i19', name_default: 'צפרדע',    color: '#547644' },
-    { id: 'i20', name_default: 'לוויתן',   color: '#5a6f80' }
+    { id: 'i01', name_default: 'ינשוף',       color: '#1a1a1a', image: 'icons/i01.png' }, // owl (default)
+    { id: 'i02', name_default: 'דוב',         color: '#1a1a1a', image: 'icons/i02.png' }, // bear
+    { id: 'i03', name_default: 'קואלה',       color: '#1a1a1a', image: 'icons/i03.png' }, // koala
+    { id: 'i04', name_default: 'עופר',        color: '#1a1a1a', image: 'icons/i04.png' }, // fawn
+    { id: 'i05', name_default: 'אייל',        color: '#1a1a1a', image: 'icons/i05.png' }, // stag
+    { id: 'i06', name_default: 'גורילה',      color: '#1a1a1a', image: 'icons/i06.png' }, // gorilla
+    { id: 'i07', name_default: 'אריה',        color: '#1a1a1a', image: 'icons/i07.png' }, // lion
+    { id: 'i08', name_default: 'ארנב',        color: '#1a1a1a', image: 'icons/i08.png' }, // rabbit
+    { id: 'i09', name_default: 'דוב חום',     color: '#1a1a1a', image: 'icons/i09.png' }, // brown bear
+    { id: 'i10', name_default: 'עצלן',        color: '#1a1a1a', image: 'icons/i10.png' }, // sloth
+    { id: 'i11', name_default: 'נמר',         color: '#1a1a1a', image: 'icons/i11.png' }, // tiger
+    { id: 'i12', name_default: 'תנשמת',       color: '#1a1a1a', image: 'icons/i12.png' }, // barn owl
+    { id: 'i13', name_default: 'שועל',        color: '#1a1a1a', image: 'icons/i13.png' }, // fox (blue)
+    { id: 'i14', name_default: 'שועל',        color: '#1a1a1a', image: 'icons/i14.png' }, // fox
+    { id: 'i15', name_default: 'גירית',       color: '#1a1a1a', image: 'icons/i15.png' }, // badger
+    { id: 'i16', name_default: 'כף יד',       color: '#1a1a1a', image: 'icons/i16.png' }, // paw print
+    { id: 'i17', name_default: 'כלב',         color: '#1a1a1a', image: 'icons/i17.png' }, // dog
+    { id: 'i18', name_default: 'חזיר בר',     color: '#1a1a1a', image: 'icons/i18.png' }, // boar
+    { id: 'i19', name_default: 'פנדה',        color: '#1a1a1a', image: 'icons/i19.png' }, // panda
+    { id: 'i20', name_default: 'בונה',        color: '#1a1a1a', image: 'icons/i20.png' }, // beaver
   ];
   const DEFAULT_ICON = ICONS[0];
   const iconById = (id) => ICONS.find((i) => i.id === id) || DEFAULT_ICON;
@@ -67,6 +67,9 @@
     }[ch]));
   }
   function renderIconGlyph(icon) {
+    if (icon.image) {
+      return `<img class="bm-icon-img" src="${icon.image}" alt="" draggable="false" />`;
+    }
     return `<div class="bm-number">${iconNumber(icon.id)}</div>`;
   }
 
@@ -98,6 +101,18 @@
     if (!res.ok) { const err = new Error(data.error || 'api_error'); err.status = res.status; throw err; }
     return data;
   }
+  async function apiSuggestedDefaults() {
+    // Returns up to 20 currently-available default names from the active tier(s).
+    // On any failure, returns null so caller falls back to ICONS' hardcoded defaults.
+    try {
+      const res = await fetch(`${API}?defaults=1`);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return Array.isArray(data.names) ? data.names : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   /* ===== 6. Chip (top-left of the landing) ===== */
   let chipEl = null;
@@ -109,7 +124,7 @@
       <div class="bm-chip-icon" style="--bm-color: ${icon.color}">
         ${renderIconGlyph(icon)}
       </div>
-      <div class="bm-chip-label">${state.has_created && state.name ? escapeHtml(state.name) : ''}</div>
+      <div class="bm-chip-label">${state.has_created && state.name ? escapeHtml(state.name) : 'סימנייה'}</div>
     `;
   }
 
@@ -312,13 +327,13 @@
 
         <div class="bm-slider-row">
           <button class="bm-slider-arrow bm-prev" aria-label="הקודם">
-            <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
+            <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
           </button>
           <div class="bm-slider-viewport">
             <div class="bm-slider-track" data-role="track"></div>
           </div>
           <button class="bm-slider-arrow bm-next" aria-label="הבא">
-            <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+            <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
           </button>
         </div>
 
@@ -342,6 +357,23 @@
     const confirmBtn = el.querySelector('.bm-btn-confirm');
     const prevBtn = el.querySelector('.bm-prev');
     const nextBtn = el.querySelector('.bm-next');
+
+    // ---- Smart defaults: fetch fresh available names from the active theme tier ----
+    // Modal opens instantly with hardcoded defaults; names get patched silently
+    // when the API responds (typically <200ms). On failure we keep the hardcoded
+    // animal names — no visible failure mode.
+    apiSuggestedDefaults().then((names) => {
+      if (!names || !names.length) return;
+      ICONS.forEach((icon, i) => {
+        if (names[i]) icon.name_default = names[i];
+      });
+      // If the user already auto-filled the input by selecting an icon, refresh
+      // it to show the freshly-fetched default (since the old hardcoded one
+      // might already be taken).
+      if (!editing && !nameDirty && pickedIconId !== DEFAULT_ICON.id) {
+        nameInput.value = iconById(pickedIconId).name_default;
+      }
+    });
 
     // ---- Render helpers ----
     function refreshPreview() {
@@ -383,8 +415,8 @@
     }
     function refreshSlider() {
       trackEl.style.transform = `translateX(${pageOffsetPx(page)}px)`;
-      prevBtn.disabled = page === 0;
-      nextBtn.disabled = page >= pages - 1;
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
       dotsEl.innerHTML = Array.from({ length: pages }, (_, i) =>
         `<div class="bm-slider-dot${i === page ? ' active' : ''}"></div>`
       ).join('');
@@ -408,8 +440,8 @@
 
     // ---- Wire events ----
     closeBtn.addEventListener('click', closeModal);
-    prevBtn.addEventListener('click', () => { if (page > 0) { page--; refreshSlider(); } });
-    nextBtn.addEventListener('click', () => { if (page < pages - 1) { page++; refreshSlider(); } });
+    prevBtn.addEventListener('click', () => { page = (page - 1 + pages) % pages; refreshSlider(); });
+    nextBtn.addEventListener('click', () => { page = (page + 1) % pages; refreshSlider(); });
 
     nameInput.value = initialName;
     nameInput.addEventListener('input', () => {
