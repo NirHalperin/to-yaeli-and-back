@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Inter:wght@400&display=swap" rel="stylesheet">
 
   <!-- Feedback widget styles. Bump ?v= when CSS changes to bust caches. -->
-  <link rel="stylesheet" href="feedback.css?v=3">
-  <link rel="stylesheet" href="bookmark.css?v=3">
+  <link rel="stylesheet" href="feedback.css?v=4">
+  <link rel="stylesheet" href="bookmark.css?v=4">
 
   <style>
     :root {
@@ -41,6 +41,9 @@
       text-align: center;
       font-size: 20px;
       color: var(--muted);
+      /* Vertically aligns the eyebrow text with the bookmark chip icon
+         (chip icon center sits at 58px; this margin pulls eyebrow center to match). */
+      margin-top: 18px;
       margin-bottom: 18px;
     }
 
@@ -786,7 +789,7 @@
     </article>
   </main>
   <!-- Feedback widget. Bump ?v= when JS changes to bust caches. -->
-  <script src="feedback.js?v=3"></script>
-  <script src="bookmark.js?v=3" defer></script>
+  <script src="feedback.js?v=4"></script>
+  <script src="bookmark.js?v=4" defer></script>
 </body>
 </html>
