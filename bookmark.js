@@ -59,10 +59,12 @@
     name: null,
     icon_id: DEFAULT_ICON.id,
     has_created: false,
-    gate_reached: 0
+    gate_reached: 0,
+    theme: 'animals'
   };
-  // Back-compat: older saved states won't have gate_reached
+  // Back-compat: older saved states won't have gate_reached / theme
   if (typeof state.gate_reached !== 'number') state.gate_reached = 0;
+  if (!state.theme) state.theme = 'animals';
 
   /* ===== 4. Small utils ===== */
   function escapeHtml(s) {
@@ -105,14 +107,36 @@
     if (!res.ok) { const err = new Error(data.error || 'api_error'); err.status = res.status; throw err; }
     return data;
   }
-  async function apiSuggestedDefaults() {
-    // Returns up to 20 currently-available default names from the active tier(s).
-    // On any failure, returns null so caller falls back to ICONS' hardcoded defaults.
+  async function apiSuggestedDefaults(themeId) {
+    // Returns { names: [...], by_icon: { i01: 'name', ... }, theme, label }
+    // for the requested theme. On any failure, returns null so caller falls
+    // back to ICONS' hardcoded defaults.
+    //   names    — flat ordered list of UNCLAIMED names (for autoAssign)
+    //   by_icon  — full theme map keyed by icon_id (paint icon labels)
     try {
-      const res = await fetch(`${API}?defaults=1`);
+      const t = themeId ? `&theme=${encodeURIComponent(themeId)}` : '';
+      const res = await fetch(`${API}?defaults=1${t}`);
       if (!res.ok) return null;
       const data = await res.json().catch(() => ({}));
-      return Array.isArray(data.names) ? data.names : null;
+      if (!data || (!Array.isArray(data.names) && !data.by_icon)) return null;
+      return {
+        names: Array.isArray(data.names) ? data.names : [],
+        by_icon: data.by_icon && typeof data.by_icon === 'object' ? data.by_icon : {},
+        theme: data.theme || themeId || 'animals',
+        label: data.label || ''
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function apiThemes() {
+    // Returns [{ id, label, default }] for the picker UI.
+    try {
+      const res = await fetch(`${API}?themes=1`);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return Array.isArray(data.themes) ? data.themes : null;
     } catch (e) {
       return null;
     }
