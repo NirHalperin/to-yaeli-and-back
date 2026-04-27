@@ -249,6 +249,7 @@
   grid-template-columns: 48px 1fr 1fr;
   grid-template-areas:
     "close instructions preview"
+    "theme theme theme"
     "slider slider slider"
     "dots dots dots"
     "confirm confirm confirm";
@@ -350,6 +351,43 @@
   top: 0;
   color: #fff;
   opacity: 0.85;
+}
+
+/* Theme picker — sits above the icon slider. Three chips, one per named-set. */
+.bm-theme-row {
+  grid-area: theme;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #2a2a2a;
+}
+.bm-theme-chip {
+  background: transparent;
+  border: 2px solid #555;
+  border-radius: 999px;
+  color: #d8d8d8;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 15px;
+  padding: 6px 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms, border-color 120ms, color 120ms, transform 120ms;
+  direction: rtl;
+}
+.bm-theme-chip:hover {
+  background: #1f1f1f;
+  border-color: #888;
+  color: #fff;
+}
+.bm-theme-chip.selected {
+  background: #fff;
+  border-color: #fff;
+  color: #111;
+}
+.bm-theme-chip.selected:hover {
+  background: #f0f0f0;
 }
 
 /* Slider */
@@ -483,11 +521,14 @@
     grid-template-areas:
       "close instructions"
       "preview preview"
+      "theme theme"
       "slider slider"
       "dots dots"
       "confirm confirm";
     gap: 16px;
   }
+  .bm-theme-row { gap: 6px; padding-top: 10px; }
+  .bm-theme-chip { font-size: 14px; padding: 5px 13px; }
   .bm-create-instructions { font-size: 15px; }
   .bm-create-instructions h3 { font-size: 19px; }
   .bm-preview-icon { width: 76px; height: 76px; border-radius: 19px; }

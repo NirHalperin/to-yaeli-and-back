@@ -317,7 +317,8 @@
         name: bm.name,
         icon_id: bm.icon_id,
         has_created: true,
-        gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : 0
+        gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : 0,
+        theme: state.theme || 'animals'
       };
       saveState();
       renderChip();
@@ -347,6 +348,10 @@
     let page = 0;
     const pages = Math.max(1, Math.ceil(ICONS.length / ICONS_PER_PAGE));
 
+    // Theme = the named-set the icon labels come from (animals / disney / sports).
+    // Defaults to whatever's in state.theme; user can flip it via the picker chips.
+    let pickedTheme = state.theme || 'animals';
+
     const el = document.createElement('div');
     el.className = 'bm-modal bm-popup-create';
     el.innerHTML = `
@@ -370,6 +375,8 @@
             <li>הכנס/י את שם הסימנייה בכל ביקור להמשך קריאה מהמקום בו עצרת</li>
           </ol>
         </div>
+
+        <div class="bm-theme-row" data-role="themes" role="tablist" aria-label="ערכת שמות"></div>
 
         <div class="bm-slider-row">
           <button class="bm-slider-arrow bm-prev" aria-label="הקודם">
@@ -398,28 +405,82 @@
     const previewEl = el.querySelector('[data-role="preview"]');
     const trackEl = el.querySelector('[data-role="track"]');
     const dotsEl = el.querySelector('[data-role="dots"]');
+    const themesEl = el.querySelector('[data-role="themes"]');
     const nameInput = el.querySelector('.bm-name-input');
     const nameErr = el.querySelector('.bm-name-error');
     const confirmBtn = el.querySelector('.bm-btn-confirm');
     const prevBtn = el.querySelector('.bm-prev');
     const nextBtn = el.querySelector('.bm-next');
 
-    // ---- Smart defaults: fetch fresh available names from the active theme tier ----
-    // Modal opens instantly with hardcoded defaults; names get patched silently
-    // when the API responds (typically <200ms). On failure we keep the hardcoded
-    // animal names — no visible failure mode.
-    apiSuggestedDefaults().then((names) => {
-      if (!names || !names.length) return;
-      ICONS.forEach((icon, i) => {
-        if (names[i]) icon.name_default = names[i];
+    // ---- Theme picker: 3 chips, click to switch, refetch defaults, repaint icon labels.
+    // We keep a local theme metadata cache so the picker can render before the
+    // names are loaded. On API failure we fall back to a hardcoded list so the
+    // picker still works.
+    const FALLBACK_THEMES = [
+      { id: 'animals', label: 'בעלי חיים', default: true },
+      { id: 'disney',  label: 'דיסני קלאסי' },
+      { id: 'sports',  label: 'אגדות הספורט' }
+    ];
+
+    function renderThemes(themes) {
+      themesEl.innerHTML = themes.map((t) => `
+        <button type="button"
+                class="bm-theme-chip ${t.id === pickedTheme ? 'selected' : ''}"
+                data-theme-id="${t.id}"
+                role="tab"
+                aria-selected="${t.id === pickedTheme ? 'true' : 'false'}">
+          ${escapeHtml(t.label)}
+        </button>
+      `).join('');
+      themesEl.querySelectorAll('.bm-theme-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.themeId;
+          if (id === pickedTheme) return;
+          pickedTheme = id;
+          themesEl.querySelectorAll('.bm-theme-chip').forEach((c) => {
+            const sel = c.dataset.themeId === pickedTheme;
+            c.classList.toggle('selected', sel);
+            c.setAttribute('aria-selected', sel ? 'true' : 'false');
+          });
+          // Refetch defaults under the new theme and repaint everything that
+          // shows a name (slider tooltips/aria, name input auto-fill, preview).
+          loadDefaultsForTheme(pickedTheme);
+        });
       });
-      // If the user already auto-filled the input by selecting an icon, refresh
-      // it to show the freshly-fetched default (since the old hardcoded one
-      // might already be taken).
-      if (!editing && !nameDirty && pickedIconId !== DEFAULT_ICON.id) {
-        nameInput.value = iconById(pickedIconId).name_default;
-      }
+    }
+
+    // Render with fallback chips immediately so the picker is visible before the API responds.
+    renderThemes(FALLBACK_THEMES);
+    apiThemes().then((themes) => {
+      if (themes && themes.length) renderThemes(themes);
     });
+
+    function loadDefaultsForTheme(themeId) {
+      apiSuggestedDefaults(themeId).then((data) => {
+        if (!data) return;
+        // Patch icon name_default from the by_icon map (1:1 — every icon has a name).
+        ICONS.forEach((icon) => {
+          const n = data.by_icon && data.by_icon[icon.id];
+          if (n) icon.name_default = n;
+        });
+        // If the user hasn't edited the name field yet, repaint it to the fresh default.
+        if (!editing && !nameDirty && pickedIconId !== DEFAULT_ICON.id) {
+          nameInput.value = iconById(pickedIconId).name_default;
+        } else if (!editing && !nameDirty) {
+          // First-load case: no icon picked yet, but show the active theme's first
+          // suggestion in the placeholder so the field doesn't look empty/orphaned.
+          if (data.names && data.names.length) {
+            nameInput.placeholder = data.names[0];
+          }
+        }
+        // Repaint the slider tiles in case any visible label was theme-driven.
+        // (Slider currently shows just the artwork — no label paint needed today,
+        // but keeping the call cheap so adding a label later is one-line.)
+      });
+    }
+
+    // Kick off initial load for the persisted (or default) theme.
+    loadDefaultsForTheme(pickedTheme);
 
     // ---- Render helpers ----
     function refreshPreview() {
@@ -522,7 +583,8 @@
           name: bm.name,
           icon_id: bm.icon_id,
           has_created: true,
-          gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : (state.gate_reached || 0)
+          gate_reached: typeof bm.gate_reached === 'number' ? bm.gate_reached : (state.gate_reached || 0),
+          theme: pickedTheme || state.theme || 'animals'
         };
         saveState();
         renderChip();
@@ -668,9 +730,11 @@
   }
 
   async function autoAssignBookmark() {
-    // Pull a list of currently-available default names from the active theme tier.
-    let names = await apiSuggestedDefaults();
-    if (!names || !names.length) {
+    // Pull a list of currently-available default names from the active theme.
+    const themeId = state.theme || 'animals';
+    const data = await apiSuggestedDefaults(themeId);
+    let names = (data && data.names) || [];
+    if (!names.length) {
       // Worst-case fallback: synthesize a unique-ish name.
       names = [`קורא_${Math.random().toString(36).slice(2, 6)}`];
     }
@@ -687,7 +751,8 @@
           name: bm.name,
           icon_id: bm.icon_id,
           has_created: true,
-          gate_reached: 0
+          gate_reached: 0,
+          theme: themeId
         };
         saveState();
         renderChip();
