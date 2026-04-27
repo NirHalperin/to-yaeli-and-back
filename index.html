@@ -845,7 +845,10 @@ Here it is in “Make Chapter HTML” format (each <p> on its own line, no empty
 <p>״חייב לעשות כפיפות בטן!״ נשמע ממנו בעודו מתנשף לכל עבר.</p>
 
 
-<!-- Gate 4 — temporary "caught up to current text" gate.
+<!-- Gate 5 — temporary "caught up to current text" gate.
+     Sits at the end of all uploaded chapters; bump its data-gate
+     number whenever a new mid-text gate is added before it (so the
+     end-of-available always has the highest data-gate value).
      Button stays "להמשיך לקרוא" so it blends with the other gates.
      Click → records progress (so dashboard sees who's caught up) →
      shows "פרקים נוספים יעלו בקרוב" modal.
