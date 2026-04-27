@@ -822,6 +822,18 @@
     installChip();
     applyGateState();        // Render gates from local state immediately
     syncGateStateFromServer(); // Then re-sync from server (server wins if higher)
+
+    // Tell other widgets (feedback.js) who this reader is, even on a
+    // plain page reload. Without this dispatch, identity-aware widgets
+    // would only be notified on identity *changes* (create / resume /
+    // auto-assign), not on the much more common "reader returns with
+    // localStorage already populated" path — and their highlights
+    // would never re-paint on refresh.
+    if (state.bookmark_id) {
+      try {
+        window.dispatchEvent(new CustomEvent('bm:identity-changed', { detail: { ...state } }));
+      } catch (_) {}
+    }
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

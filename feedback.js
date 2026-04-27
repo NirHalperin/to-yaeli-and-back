@@ -477,19 +477,50 @@
     busy = false;
   }
 
-  /* ---------- 10. Restore on load + on identity change ---------- */
+  /* ---------- 10. Restore on load + on identity change ----------
+     This is what makes highlights survive a refresh. The reader's
+     bookmark_id (from bookmark.js / localStorage) is the cross-session
+     identity; every record on the server is keyed by it. We:
+       1. fetch all of this reader's records
+       2. wipe ONLY if the fetch succeeded (so a transient failure never
+          makes the user's highlights vanish)
+       3. re-apply .committed on every anchor word
+       4. mirror the records into the local Map so re-tapping a word
+          opens the popup pre-filled with the existing reaction/comment
+
+     Trigger paths (any one of them lights up the highlights):
+       - "bm:identity-changed" event from bookmark.js — fires on:
+           • normal page load (state recovered from localStorage)
+           • resume on a different device (typing your name)
+           • brand-new bookmark created
+           • auto-assigned bookmark from the gate flow
+       - setTimeout fallback — covers the weird race where
+         bookmark.js init hasn't dispatched yet when feedback.js loads.
+       - one short retry — if the first attempt finds no identity
+         (e.g. reader hasn't created a bookmark yet), we wait a tick
+         and try again before giving up. */
   async function loadReactionsForCurrentBookmark() {
     const bm = getBookmarkState();
-    if (!bm || !bm.bookmark_id) return;
-    let list;
-    try { list = await apiListReactions(bm.bookmark_id); }
-    catch (_) { return; }
+    if (!bm || !bm.bookmark_id) return false;
 
+    let list;
+    try {
+      list = await apiListReactions(bm.bookmark_id);
+    } catch (_) {
+      // API failed — leave existing highlights alone. Better to keep
+      // possibly-stale paint than to flash everything to bare text.
+      return false;
+    }
+    if (!Array.isArray(list)) return false;
+
+    // Fetch succeeded — safe to reset and repaint.
     clearAllCommitted();
 
     list.forEach((r) => {
       if (!r.anchor_id || !r.scope) return;
-      const anchor = document.querySelector(`.word[data-anchor-id="${CSS.escape(r.anchor_id)}"]`);
+      const anchor = document.querySelector(
+        `.word[data-anchor-id="${CSS.escape(r.anchor_id)}"]`
+      );
       if (!anchor) return;
       applyCommitted(anchor, r.scope);
       reactions.set(anchor, {
@@ -498,10 +529,23 @@
         scope: r.scope
       });
     });
+    return true;
   }
 
+  // Belt-and-suspenders: load on any identity signal AND on script start.
   window.addEventListener('bm:identity-changed', loadReactionsForCurrentBookmark);
-  setTimeout(loadReactionsForCurrentBookmark, 0);
+  (async function bootstrapHighlights() {
+    // Wait one tick so bookmark.js can finish its init() and populate
+    // window.__bmGetState() from localStorage.
+    await new Promise((r) => setTimeout(r, 0));
+    const ok = await loadReactionsForCurrentBookmark();
+    if (ok) return;
+    // No identity yet (or empty list). Try once more after a short
+    // delay — e.g. bookmark.js may dispatch identity-changed shortly
+    // after init for newly-created bookmarks. The event listener also
+    // covers this, but the explicit retry is cheap insurance.
+    setTimeout(loadReactionsForCurrentBookmark, 250);
+  })();
 
   /* ---------- 11. Master click handler ---------- */
   document.addEventListener('click', (e) => {
