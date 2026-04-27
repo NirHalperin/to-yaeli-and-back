@@ -169,11 +169,11 @@
         </button>
         <button class="fb-btn fb-btn-reaction ${currentReaction === 'love' ? 'selected' : ''}"
                 data-action="love" aria-label="אהבתי">
-          <img src="Love It.png" alt="אהבתי" draggable="false" />
+          <img src="Love It.png?v=2" alt="אהבתי" draggable="false" />
         </button>
         <button class="fb-btn fb-btn-reaction ${currentReaction === 'improve' ? 'selected' : ''}"
                 data-action="improve" aria-label="לשפר">
-          <img src="Make Better.png" alt="לשפר" draggable="false" />
+          <img src="Make Better.png?v=2" alt="לשפר" draggable="false" />
         </button>
         <div class="fb-divider"></div>
         <button class="fb-btn fb-btn-secondary fb-btn-reset"
