@@ -353,28 +353,62 @@
     return Array.isArray(data.reactions) ? data.reactions : [];
   }
 
-  /* ---------- 9. Save flows ---------- */
+  /* ---------- 9. Save flows ----------
+     Two flows, governed by whether the text-row is open:
 
-  /* Reaction click — saves reaction + any drafted (unsubmitted) text
-     in the textarea, so the user never loses what they were typing. */
+     PATH 1 — reaction-only (text-row closed):
+       reaction click → save → popup closes, word highlighted.
+
+     PATH 2 — combined feedback (text-row open):
+       reaction click → save → popup STAYS OPEN so the reader can keep
+       writing → ✓ commits the text → popup closes.
+
+     The text-row is the contract: while it's open, ✓ is the only thing
+     that closes the popup. ✕ (cancel) and clicking outside also close,
+     but those are explicit "abandon" actions. */
+
+  /* Updates the reaction-button selected state in-place when the popup
+     is staying open (path 2). Avoids re-rendering the popup, which
+     would lose textarea focus and any pending IME composition. */
+  function updateReactionSelection(reaction) {
+    if (!popup) return;
+    const loveBtn = popup.querySelector('.fb-btn[data-action="love"]');
+    const improveBtn = popup.querySelector('.fb-btn[data-action="improve"]');
+    if (loveBtn) loveBtn.classList.toggle('selected', reaction === 'love');
+    if (improveBtn) improveBtn.classList.toggle('selected', reaction === 'improve');
+    // Now that something is committed, reset (↶) is meaningful.
+    const resetBtn = popup.querySelector('.fb-btn-reset');
+    if (resetBtn) resetBtn.disabled = false;
+  }
+
+  /* Reaction click — durably saves the reaction. If the user is mid-
+     composition of a comment (text-row open), keeps the popup open so
+     the ✓ button remains the sole exit for that flow. */
   async function commitReaction(reaction) {
     if (busy) return;
     if (!anchorWord || !scope) return;
-    busy = true;
 
     const localAnchor = anchorWord;
     const localScope = scope;
     const text = getScopeText(localAnchor, localScope);
     const anchor_id = localAnchor.dataset.anchorId || '';
 
-    // Pick up any in-flight text typed but not yet ✓-submitted.
-    const textarea = popup ? popup.querySelector('.fb-text-input') : null;
-    const draftComment = textarea ? (textarea.value || '').trim() : '';
+    // Snapshot text-row state BEFORE the await — popup may get torn
+    // down mid-flight (e.g. user clicks outside) and we want the
+    // decision to keep-open vs. close to reflect the state at click time.
+    const textRow = popup ? popup.querySelector('.fb-text-row') : null;
+    const textRowOpen = !!(textRow && !textRow.hasAttribute('hidden'));
+
+    busy = true;
 
     let bm;
     try { bm = await ensureBookmark(); }
     catch (e) { busy = false; return; }
 
+    // We deliberately do NOT pull draft text from the textarea here.
+    // Reactions and comments are independent saves that merge on the
+    // server. Comment is committed only via ✓ — that's the contract
+    // that makes "popup stays open until ✓" meaningful.
     const payload = {
       bookmark_id: bm.bookmark_id,
       anchor_id,
@@ -382,7 +416,6 @@
       text,
       reaction
     };
-    if (draftComment) payload.comment = draftComment;
 
     try {
       const saved = await apiUpsertReaction(payload);
@@ -392,11 +425,33 @@
         comment: saved.comment || '',
         scope: localScope
       });
+
+      // Path 2: keep the popup open so the reader can finish their
+      // text. Update the buttons in-place, refocus the textarea.
+      if (textRowOpen && popup) {
+        editingAnchor = localAnchor;  // record exists now → reset works
+        updateReactionSelection(saved.reaction);
+        const textarea = popup.querySelector('.fb-text-input');
+        if (textarea) {
+          const len = textarea.value.length;
+          textarea.focus();
+          try { textarea.setSelectionRange(len, len); } catch (_) {}
+        }
+        busy = false;
+        return;
+      }
     } catch (e) {
       console.error('reaction save failed:', e);
-    } finally {
-      finishPopupSession();
+      // Path 2 with an error: still keep popup open so the reader can
+      // retry. They didn't lose their typed text.
+      if (textRowOpen && popup) {
+        busy = false;
+        return;
+      }
     }
+
+    // Path 1 (or popup was torn down mid-flight): close as before.
+    finishPopupSession();
   }
 
   /* ✓ submit — saves the comment alongside any selected reaction. */
