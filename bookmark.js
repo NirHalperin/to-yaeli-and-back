@@ -360,37 +360,33 @@
           <svg viewBox="0 0 24 24"><path d="M6 6L18 18M18 6L6 18"/></svg>
         </button>
 
-        <div class="bm-create-preview">
-          <div class="bm-create-preview-label">סימנייה</div>
-          <div class="bm-preview-icon" data-role="preview"></div>
-          <input class="bm-name-input" type="text" placeholder="שם הסימנייה" autocomplete="off" />
-          <div class="bm-name-error" role="alert"></div>
-        </div>
-
-        <div class="bm-create-instructions">
+        <div class="bm-create-header">
           <h3>${editing ? 'עריכת סימנייה' : 'יצירת סימנייה'}</h3>
-          <ol>
-            <li>בחר/י אייקון</li>
-            <li>בחר/י שם</li>
-            <li>הכנס/י את שם הסימנייה בכל ביקור להמשך קריאה מהמקום בו עצרת</li>
-          </ol>
+          <p class="bm-create-subtitle">הכנס/י את שם הסימנייה בביקור הבא להמשך קריאה מהמקום בו עצרת.</p>
         </div>
 
-        <div class="bm-theme-row" data-role="themes" role="tablist" aria-label="ערכת שמות"></div>
-
-        <div class="bm-slider-row">
-          <button class="bm-slider-arrow bm-prev" aria-label="הקודם">
-            <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
-          </button>
-          <div class="bm-slider-viewport">
-            <div class="bm-slider-track" data-role="track"></div>
+        <div class="bm-step bm-step-icon">
+          <div class="bm-step-label"><span class="bm-step-num">1.</span> בחר/י אייקון</div>
+          <div class="bm-slider-row">
+            <button class="bm-slider-arrow bm-prev" aria-label="הקודם">
+              <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+            </button>
+            <div class="bm-slider-viewport">
+              <div class="bm-slider-track" data-role="track"></div>
+            </div>
+            <button class="bm-slider-arrow bm-next" aria-label="הבא">
+              <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
+            </button>
           </div>
-          <button class="bm-slider-arrow bm-next" aria-label="הבא">
-            <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
-          </button>
         </div>
 
-        <div class="bm-slider-dots" data-role="dots"></div>
+        <div class="bm-step bm-step-name">
+          <div class="bm-step-label"><span class="bm-step-num">2.</span> בחר/י שם</div>
+          <div class="bm-step-input-wrap">
+            <input class="bm-name-input" type="text" placeholder="שם הסימנייה" autocomplete="off" />
+            <div class="bm-name-error" role="alert"></div>
+          </div>
+        </div>
 
         <div class="bm-confirm-row">
           <button class="bm-btn-confirm" aria-label="אישור" disabled>
@@ -402,59 +398,15 @@
     el.addEventListener('click', (e) => e.stopPropagation());
 
     const closeBtn = el.querySelector('.bm-btn-close');
-    const previewEl = el.querySelector('[data-role="preview"]');
     const trackEl = el.querySelector('[data-role="track"]');
-    const dotsEl = el.querySelector('[data-role="dots"]');
-    const themesEl = el.querySelector('[data-role="themes"]');
     const nameInput = el.querySelector('.bm-name-input');
     const nameErr = el.querySelector('.bm-name-error');
     const confirmBtn = el.querySelector('.bm-btn-confirm');
     const prevBtn = el.querySelector('.bm-prev');
     const nextBtn = el.querySelector('.bm-next');
 
-    // ---- Theme picker: 3 chips, click to switch, refetch defaults, repaint icon labels.
-    // We keep a local theme metadata cache so the picker can render before the
-    // names are loaded. On API failure we fall back to a hardcoded list so the
-    // picker still works.
-    const FALLBACK_THEMES = [
-      { id: 'animals', label: 'בעלי חיים', default: true },
-      { id: 'disney',  label: 'דיסני קלאסי' },
-      { id: 'sports',  label: 'אגדות הספורט' }
-    ];
-
-    function renderThemes(themes) {
-      themesEl.innerHTML = themes.map((t) => `
-        <button type="button"
-                class="bm-theme-chip ${t.id === pickedTheme ? 'selected' : ''}"
-                data-theme-id="${t.id}"
-                role="tab"
-                aria-selected="${t.id === pickedTheme ? 'true' : 'false'}">
-          ${escapeHtml(t.label)}
-        </button>
-      `).join('');
-      themesEl.querySelectorAll('.bm-theme-chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-          const id = chip.dataset.themeId;
-          if (id === pickedTheme) return;
-          pickedTheme = id;
-          themesEl.querySelectorAll('.bm-theme-chip').forEach((c) => {
-            const sel = c.dataset.themeId === pickedTheme;
-            c.classList.toggle('selected', sel);
-            c.setAttribute('aria-selected', sel ? 'true' : 'false');
-          });
-          // Refetch defaults under the new theme and repaint everything that
-          // shows a name (slider tooltips/aria, name input auto-fill, preview).
-          loadDefaultsForTheme(pickedTheme);
-        });
-      });
-    }
-
-    // Render with fallback chips immediately so the picker is visible before the API responds.
-    renderThemes(FALLBACK_THEMES);
-    apiThemes().then((themes) => {
-      if (themes && themes.length) renderThemes(themes);
-    });
-
+    // Theme picker UI removed in the new design — names are still loaded from the
+    // active theme (defaults to 'animals') so icon name_default values stay populated.
     function loadDefaultsForTheme(themeId) {
       apiSuggestedDefaults(themeId).then((data) => {
         if (!data) return;
@@ -483,11 +435,6 @@
     loadDefaultsForTheme(pickedTheme);
 
     // ---- Render helpers ----
-    function refreshPreview() {
-      const icon = iconById(pickedIconId);
-      previewEl.style.setProperty('--bm-color', icon.color);
-      previewEl.innerHTML = renderIconGlyph(icon);
-    }
     function renderTrack() {
       trackEl.innerHTML = ICONS.map((icon) => `
         <div class="bm-slider-item ${icon.id === pickedIconId ? 'selected' : ''}"
@@ -500,7 +447,6 @@
           pickedIconId = it.dataset.id;
           trackEl.querySelectorAll('.bm-slider-item').forEach((o) =>
             o.classList.toggle('selected', o.dataset.id === pickedIconId));
-          refreshPreview();
           // Auto-fill name with the icon's default UNTIL the user has typed something themselves
           if (!nameDirty) {
             nameInput.value = iconById(pickedIconId).name_default;
@@ -524,9 +470,6 @@
       trackEl.style.transform = `translateX(${pageOffsetPx(page)}px)`;
       prevBtn.disabled = false;
       nextBtn.disabled = false;
-      dotsEl.innerHTML = Array.from({ length: pages }, (_, i) =>
-        `<div class="bm-slider-dot${i === page ? ' active' : ''}"></div>`
-      ).join('');
     }
     function refreshConfirm() {
       // Rule: V enabled only when the user picked a (different) icon OR edited the name.
@@ -609,7 +552,6 @@
     }
 
     // ---- Kick off ----
-    refreshPreview();
     renderTrack();
     showModal(el);
     // Slider offsets depend on laid-out widths, so compute after first paint

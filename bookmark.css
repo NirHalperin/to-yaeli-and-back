@@ -239,68 +239,111 @@
 }
 .bm-btn-outline:hover { background: #1f1f1f; border-color: #888; }
 
-/* ------------- 5. Create modal (ref3) ------------- */
+/* ------------- 5. Create modal (refined design) -------------
+   Layout:
+     ┌──────────────────────────┐
+     │ [X]            Title     │   ← header row (close on left, title+subtitle on right)
+     │                Subtitle  │
+     ├──────────────────────────┤
+     │ [slider →]    1. icon    │   ← step row: label on right (RTL), content on left
+     │ [input]       2. name    │
+     │           [V]            │   ← confirm centered
+     └──────────────────────────┘
+*/
 .bm-popup-create {
-  padding: 22px;
-  width: min(760px, calc(100vw - 24px));
+  padding: 28px 32px;
+  width: min(680px, calc(100vw - 24px));
 }
 .bm-create-grid {
   display: grid;
-  grid-template-columns: 48px 1fr 1fr;
+  grid-template-columns: auto 1fr;
   grid-template-areas:
-    "close instructions preview"
-    "theme theme theme"
-    "slider slider slider"
-    "dots dots dots"
-    "confirm confirm confirm";
-  gap: 18px 20px;
+    "close header"
+    "step-icon step-icon"
+    "step-name step-name"
+    "confirm confirm";
+  gap: 24px 18px;
   align-items: start;
 }
-.bm-create-grid .bm-btn-close { grid-area: close; }
+.bm-create-grid .bm-btn-close {
+  grid-area: close;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+}
+.bm-create-grid .bm-btn-close svg { width: 24px; height: 24px; stroke-width: 2.4; }
 
-.bm-create-preview {
-  grid-area: preview;
+/* Header (title + subtitle), right-aligned on desktop */
+.bm-create-header {
+  grid-area: header;
+  text-align: right;
+  direction: rtl;
+  font-family: "Frank Ruhl Libre", serif;
+  color: #e8e8e8;
+}
+.bm-create-header h3 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.2;
+}
+.bm-create-subtitle {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #c8c8c8;
+  max-width: 460px;
+  margin-left: auto; /* push subtitle to right edge in RTL */
+}
+
+/* Step rows — label on the right, content (slider/input) on the left */
+.bm-step {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 18px;
+  direction: rtl;
+}
+.bm-step-icon { grid-area: step-icon; }
+.bm-step-name { grid-area: step-name; }
+
+.bm-step-label {
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 22px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  direction: rtl;
+}
+.bm-step-num {
+  color: #fff;
+  opacity: 0.95;
+}
+
+.bm-step-input-wrap {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-  min-width: 140px;
-  justify-self: center;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
 }
-.bm-create-preview-label {
-  font-family: "Frank Ruhl Libre", serif;
-  font-size: 16px;
-  color: #bbb;
-}
-.bm-preview-icon {
-  width: 88px;
-  height: 88px;
-  border-radius: 22px;
-  background: var(--bm-color, #888);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.bm-preview-icon .bm-number {
-  color: #fff;
-  font-family: "Frank Ruhl Libre", serif;
-  font-size: 32px;
-  font-weight: 600;
-}
+
 .bm-name-input {
   background: transparent;
   border: 2px solid #666;
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: 14px;
+  padding: 14px 18px;
   color: #fff;
   font-family: "Frank Ruhl Libre", serif;
-  font-size: 16px;
+  font-size: 22px;
   direction: rtl;
   text-align: right;
   outline: none;
-  width: 190px;
-  max-width: 100%;
+  width: 100%;
   transition: border-color 120ms;
 }
 .bm-name-input:focus { border-color: #aaa; }
@@ -308,112 +351,39 @@
 .bm-name-input::placeholder { color: #8a8a8a; }
 
 .bm-name-error {
-  margin-top: 4px;
+  margin-top: 6px;
   color: #e89090;
   font-family: "Frank Ruhl Libre", serif;
-  font-size: 12px;
-  min-height: 15px;
-  width: 190px;
-  text-align: right;
-}
-
-.bm-create-instructions {
-  grid-area: instructions;
+  font-size: 13px;
+  min-height: 16px;
   text-align: right;
   direction: rtl;
-  font-family: "Frank Ruhl Libre", serif;
-  font-size: 17px;
-  line-height: 1.55;
-  color: #e8e8e8;
-}
-.bm-create-instructions h3 {
-  margin: 0 0 12px;
-  font-size: 22px;
-  font-weight: 500;
-  color: #fff;
-}
-.bm-create-instructions ol {
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  counter-reset: step;
-}
-.bm-create-instructions li {
-  counter-increment: step;
-  margin-bottom: 6px;
-  padding-right: 28px;
-  position: relative;
-}
-.bm-create-instructions li::before {
-  content: counter(step) ".";
-  position: absolute;
-  right: 0;
-  top: 0;
-  color: #fff;
-  opacity: 0.85;
 }
 
-/* Theme picker — sits above the icon slider. Three chips, one per named-set. */
-.bm-theme-row {
-  grid-area: theme;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid #2a2a2a;
-}
-.bm-theme-chip {
-  background: transparent;
-  border: 2px solid #555;
-  border-radius: 999px;
-  color: #d8d8d8;
-  font-family: "Frank Ruhl Libre", serif;
-  font-size: 15px;
-  padding: 6px 16px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 120ms, border-color 120ms, color 120ms, transform 120ms;
-  direction: rtl;
-}
-.bm-theme-chip:hover {
-  background: #1f1f1f;
-  border-color: #888;
-  color: #fff;
-}
-.bm-theme-chip.selected {
-  background: #fff;
-  border-color: #fff;
-  color: #111;
-}
-.bm-theme-chip.selected:hover {
-  background: #f0f0f0;
-}
-
-/* Slider */
+/* Slider — taller icons, single page-arrow flow */
 .bm-slider-row {
-  grid-area: slider;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #2a2a2a;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
 }
 .bm-slider-viewport {
   flex: 1;
   overflow: hidden;
   position: relative;
+  min-width: 0;
 }
 .bm-slider-track {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   transition: transform 260ms ease;
   will-change: transform;
 }
 .bm-slider-item {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
   background: var(--bm-color, #555);
   cursor: pointer;
   flex-shrink: 0;
@@ -425,11 +395,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 .bm-slider-item:hover { transform: scale(1.05); }
-.bm-slider-item.selected { border-color: #ffffff; }
+.bm-slider-item.selected {
+  border-color: #ffffff;
+  border-style: dashed;
+}
 .bm-slider-item .bm-number {
   color: #fff;
   font-family: "Frank Ruhl Libre", serif;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 600;
 }
 
@@ -460,33 +433,17 @@
   stroke-linejoin: round;
 }
 
-/* Page dots */
-.bm-slider-dots {
-  grid-area: dots;
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-.bm-slider-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #444;
-  transition: background 120ms;
-}
-.bm-slider-dot.active { background: #fff; }
-
-/* Confirm button (the V) */
+/* Confirm button (the V) — centered, larger */
 .bm-confirm-row {
   grid-area: confirm;
   display: flex;
-  justify-content: flex-start;
-  margin-top: 4px;
+  justify-content: center;
+  margin-top: 8px;
 }
 .bm-btn-confirm {
-  width: 60px;
-  height: 60px;
-  border-radius: 18px;
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
   background: #fff;
   border: 2px solid transparent;
   color: #000;
@@ -500,12 +457,12 @@
 .bm-btn-confirm:hover:not(:disabled) { background: #f0f0f0; }
 .bm-btn-confirm:active:not(:disabled) { transform: scale(0.96); }
 .bm-btn-confirm:disabled {
-  opacity: 0.28;
+  opacity: 0.32;
   cursor: not-allowed;
 }
 .bm-btn-confirm svg {
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   stroke: currentColor;
   fill: none;
   stroke-width: 3;
@@ -513,35 +470,36 @@
   stroke-linejoin: round;
 }
 
-/* Mobile layout: stack preview + instructions */
+/* Mobile layout */
 @media (max-width: 560px) {
-  .bm-popup-create { padding: 18px; }
+  .bm-popup-create { padding: 18px 18px 22px; }
   .bm-create-grid {
-    grid-template-columns: 44px 1fr;
+    grid-template-columns: auto 1fr;
     grid-template-areas:
-      "close instructions"
-      "preview preview"
-      "theme theme"
-      "slider slider"
-      "dots dots"
+      "close header"
+      "step-icon step-icon"
+      "step-name step-name"
       "confirm confirm";
-    gap: 16px;
+    gap: 18px 12px;
   }
-  .bm-theme-row { gap: 6px; padding-top: 10px; }
-  .bm-theme-chip { font-size: 14px; padding: 5px 13px; }
-  .bm-create-instructions { font-size: 15px; }
-  .bm-create-instructions h3 { font-size: 19px; }
-  .bm-preview-icon { width: 76px; height: 76px; border-radius: 19px; }
-  .bm-preview-icon .bm-number { font-size: 28px; }
-  .bm-name-input, .bm-name-error { width: 160px; font-size: 15px; }
-  .bm-slider-item { width: 68px; height: 68px; border-radius: 17px; }
-  .bm-slider-item .bm-number { font-size: 24px; }
+  .bm-create-grid .bm-btn-close { width: 50px; height: 50px; border-radius: 14px; }
+  .bm-create-grid .bm-btn-close svg { width: 19px; height: 19px; }
+  .bm-create-header h3 { font-size: 24px; }
+  .bm-create-subtitle { font-size: 14px; }
+
+  .bm-step { grid-template-columns: 1fr auto; gap: 12px; }
+  .bm-step-label { font-size: 18px; }
+
+  .bm-name-input { font-size: 18px; padding: 11px 14px; border-radius: 12px; }
+
+  .bm-slider-item { width: 76px; height: 76px; border-radius: 18px; }
+  .bm-slider-item .bm-number { font-size: 26px; }
+  .bm-slider-row { gap: 8px; }
   .bm-slider-arrow { width: 38px; height: 38px; }
   .bm-slider-arrow svg { width: 18px; height: 18px; }
-  .bm-btn-close { width: 42px; height: 42px; border-radius: 12px; }
-  .bm-btn-close svg { width: 17px; height: 17px; }
-  .bm-btn-confirm { width: 52px; height: 52px; border-radius: 16px; }
-  .bm-btn-confirm svg { width: 26px; height: 26px; }
+
+  .bm-btn-confirm { width: 64px; height: 64px; border-radius: 18px; }
+  .bm-btn-confirm svg { width: 32px; height: 32px; }
 
   /* Resume popup tighter on mobile */
   .bm-popup-resume { padding: 14px 16px; }
