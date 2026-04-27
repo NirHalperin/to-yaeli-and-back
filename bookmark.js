@@ -663,7 +663,21 @@
     const reached = state.gate_reached || 0;
 
     // First gate where number > reached is the new active gate.
-    const activeGate = gates.find((g) => g.num > reached);
+    let activeGate = gates.find((g) => g.num > reached);
+
+    // Edge case: the end-of-available "you're caught up" gate is special —
+    // it should stay visible at the bottom of the page even after the user
+    // has clicked it (so a returning caught-up reader still sees a closure
+    // marker instead of the page just ending). If gate_reached has caught
+    // up past every gate but the highest gate is end-of-available, surface
+    // it as active. Click handler is still idempotent (recordGateProgress
+    // uses Math.max), so no state damage.
+    if (!activeGate) {
+      const endOfAvailable = gates.find(
+        (g) => g.el.getAttribute('data-end-of-available') === '1'
+      );
+      if (endOfAvailable) activeGate = endOfAvailable;
+    }
 
     gates.forEach((g) => {
       if (!activeGate || g === activeGate) return;
