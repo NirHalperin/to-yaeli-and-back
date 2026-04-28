@@ -240,25 +240,27 @@
 .bm-btn-outline:hover { background: #1f1f1f; border-color: #888; }
 
 /* ------------- 5. Create modal (refined design) -------------
-   Layout:
-     ┌──────────────────────────┐
-     │ [X]            Title     │   ← header row (close on left, title+subtitle on right)
-     │                Subtitle  │
-     ├──────────────────────────┤
-     │ [slider →]    1. icon    │   ← step row: label on right (RTL), content on left
-     │ [input]       2. name    │
-     │           [V]            │   ← confirm centered
-     └──────────────────────────┘
+   Desktop layout (RTL parent, columns flip visually):
+     ┌─────────────────────────────────────────┐
+     │ [X]                       Title         │   ← X on left, title/subtitle right
+     │                           Subtitle      │
+     ├─────────────────────────────────────────┤
+     │ [preview] [< slider >]  1. בחר אייקון   │   ← step row with preview on far left
+     │ [input]                 2. בחר שם       │
+     │                  [V]                    │   ← confirm centered
+     └─────────────────────────────────────────┘
 */
 .bm-popup-create {
   padding: 28px 32px;
   width: min(680px, calc(100vw - 24px));
 }
+/* Header row: 1fr|auto with areas "header close" puts header in col 1
+   (right in RTL) and close in col 2 (left in RTL) — that's X-on-left. */
 .bm-create-grid {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr auto;
   grid-template-areas:
-    "close header"
+    "header close"
     "step-icon step-icon"
     "step-name step-name"
     "confirm confirm";
@@ -297,16 +299,31 @@
   margin-left: auto; /* push subtitle to right edge in RTL */
 }
 
-/* Step rows — label on the right, content (slider/input) on the left */
+/* Step rows — label on the right, content on the left.
+   Step 1 has THREE columns to host preview at the far left. */
 .bm-step {
-  display: grid;
-  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 18px;
   direction: rtl;
 }
-.bm-step-icon { grid-area: step-icon; }
-.bm-step-name { grid-area: step-name; }
+.bm-step-icon {
+  grid-area: step-icon;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "label slider preview";
+}
+.bm-step-icon .bm-step-label  { grid-area: label; }
+.bm-step-icon .bm-slider-row  { grid-area: slider; }
+.bm-step-icon .bm-preview     { grid-area: preview; }
+
+.bm-step-name {
+  grid-area: step-name;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "label input";
+}
+.bm-step-name .bm-step-label      { grid-area: label; }
+.bm-step-name .bm-step-input-wrap { grid-area: input; }
 
 .bm-step-label {
   font-family: "Frank Ruhl Libre", serif;
@@ -360,13 +377,46 @@
   direction: rtl;
 }
 
-/* Slider — taller icons, single page-arrow flow */
+/* Preview square — stroke-only by default, fills with picked icon's color
+   once an icon is selected. */
+.bm-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  border: 2px dashed #777;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: background 120ms;
+}
+.bm-preview.has-icon {
+  background: var(--bm-color, transparent);
+  border-style: solid;
+  border-color: #555;
+}
+.bm-preview .bm-icon-img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+.bm-preview .bm-number {
+  color: #fff;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 30px;
+  font-weight: 600;
+}
+
+/* Slider — explicit LTR so item 0 (default owl) sits at the LEFT edge. */
 .bm-slider-row {
   display: flex;
   align-items: center;
   gap: 14px;
   width: 100%;
   min-width: 0;
+  direction: ltr;
 }
 .bm-slider-viewport {
   flex: 1;
@@ -377,6 +427,7 @@
 .bm-slider-track {
   display: flex;
   gap: 14px;
+  direction: ltr;
   transition: transform 260ms ease;
   will-change: transform;
 }
@@ -390,13 +441,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid transparent;
+  /* 2px transparent border keeps layout stable when .selected adds a real
+     border (no shift on click). */
+  border: 2px solid transparent;
   transition: transform 120ms, border-color 120ms;
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 .bm-slider-item:hover { transform: scale(1.05); }
 .bm-slider-item.selected {
-  border-color: #ffffff;
+  /* Thinner, darker grey stroke per design — replaces the old white 3px. */
+  border-color: #777;
   border-style: dashed;
 }
 .bm-slider-item .bm-number {
@@ -470,13 +525,30 @@
   stroke-linejoin: round;
 }
 
-/* Mobile layout */
+/* ---- Mobile (≤560px) — Inter font, 5-icon-per-view slider, preview
+   moves to a top row beside the label so the slider gets full width. ---- */
 @media (max-width: 560px) {
-  .bm-popup-create { padding: 18px 18px 22px; }
+  .bm-popup-create {
+    padding: 18px 18px 22px;
+    /* Per-modal Inter override; keeps page-wide Frank Ruhl Libre intact. */
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .bm-popup-create,
+  .bm-popup-create .bm-create-header h3,
+  .bm-popup-create .bm-create-subtitle,
+  .bm-popup-create .bm-step-label,
+  .bm-popup-create .bm-name-input,
+  .bm-popup-create .bm-name-error,
+  .bm-popup-create .bm-slider-item .bm-number,
+  .bm-popup-create .bm-preview .bm-number {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
   .bm-create-grid {
-    grid-template-columns: auto 1fr;
+    /* Keep X on left on mobile too: header right (1fr), close left (auto). */
+    grid-template-columns: 1fr auto;
     grid-template-areas:
-      "close header"
+      "header close"
       "step-icon step-icon"
       "step-name step-name"
       "confirm confirm";
@@ -484,19 +556,86 @@
   }
   .bm-create-grid .bm-btn-close { width: 50px; height: 50px; border-radius: 14px; }
   .bm-create-grid .bm-btn-close svg { width: 19px; height: 19px; }
-  .bm-create-header h3 { font-size: 24px; }
-  .bm-create-subtitle { font-size: 14px; }
+  .bm-create-header h3 { font-size: 24px; font-weight: 600; }
+  /* Subtitle: thin weight + 20% bigger (14 → 17px). */
+  .bm-create-subtitle {
+    font-size: 17px;
+    font-weight: 200;
+    line-height: 1.5;
+  }
 
-  .bm-step { grid-template-columns: 1fr auto; gap: 12px; }
-  .bm-step-label { font-size: 18px; }
+  /* Step 1: stack so slider gets full row width.
+     Top: label on right, preview on left. Bottom: full-width slider. */
+  .bm-step-icon {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "label preview"
+      "slider slider";
+    column-gap: 12px;
+    row-gap: 12px;
+    align-items: center;
+  }
+  .bm-step-icon .bm-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
 
-  .bm-name-input { font-size: 18px; padding: 11px 14px; border-radius: 12px; }
+  /* Step 2: keep label + input on one row; align-items: center vertically
+     centers the label text with the input box (per fix 7d). */
+  .bm-step-name {
+    grid-template-columns: auto 1fr;
+    column-gap: 12px;
+    align-items: center;
+  }
+  .bm-step-label {
+    font-size: 18px;
+    line-height: 1;        /* Single-line baseline matches input center. */
+    align-self: center;
+  }
 
-  .bm-slider-item { width: 76px; height: 76px; border-radius: 18px; }
-  .bm-slider-item .bm-number { font-size: 26px; }
-  .bm-slider-row { gap: 8px; }
-  .bm-slider-arrow { width: 38px; height: 38px; }
-  .bm-slider-arrow svg { width: 18px; height: 18px; }
+  .bm-name-input {
+    font-size: 18px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    line-height: 1;
+  }
+
+  /* Mobile slider: 5 full icons per view, no spaces, no arrows visible.
+     Use native horizontal scroll-snap so the user can swipe through. */
+  .bm-slider-row {
+    gap: 0;
+    width: 100%;
+  }
+  .bm-slider-arrow {
+    /* Per fix 5: no half-icon overflow and no dots — also no arrow chrome
+       crowding the row. The slider scrolls natively instead. */
+    display: none;
+  }
+  .bm-slider-viewport {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    /* Hide scrollbar — keep the look clean. */
+    scrollbar-width: none;
+  }
+  .bm-slider-viewport::-webkit-scrollbar { display: none; }
+  .bm-slider-track {
+    gap: 0;
+    /* Transform isn't used on mobile; JS clears it. */
+    transform: none !important;
+    transition: none;
+  }
+  .bm-slider-item {
+    /* 5 icons fit exactly across the viewport, no gaps. */
+    width: 20%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    scroll-snap-align: start;
+  }
+  .bm-slider-item .bm-number { font-size: 24px; }
 
   .bm-btn-confirm { width: 64px; height: 64px; border-radius: 18px; }
   .bm-btn-confirm svg { width: 32px; height: 32px; }
