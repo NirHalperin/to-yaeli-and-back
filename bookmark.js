@@ -345,8 +345,12 @@
     // Working values that the user edits in the modal
     let pickedIconId = initialIconId;
     let nameDirty = false;   // true once the user types in the name field
-    let page = 0;
-    const pages = Math.max(1, Math.ceil(ICONS.length / ICONS_PER_PAGE));
+    // firstVisible = index of leftmost icon visible in the slider viewport.
+    // Replaces the old "page" model so we can center the clicked icon and
+    // open the modal with the selected icon at the left edge.
+    let firstVisible = 0;
+    const isMobile = () => window.matchMedia('(max-width: 560px)').matches;
+    const getIconsPerPage = () => isMobile() ? 5 : ICONS_PER_PAGE;
 
     // Theme = the named-set the icon labels come from (animals / disney / sports).
     // Defaults to whatever's in state.theme; user can flip it via the picker chips.
@@ -356,28 +360,28 @@
     el.className = 'bm-modal bm-popup-create';
     el.innerHTML = `
       <div class="bm-create-grid">
-        <button class="bm-btn-close" aria-label="סגור">
-          <svg viewBox="0 0 24 24"><path d="M6 6L18 18M18 6L6 18"/></svg>
-        </button>
-
         <div class="bm-create-header">
           <h3>${editing ? 'עריכת סימנייה' : 'יצירת סימנייה'}</h3>
           <p class="bm-create-subtitle">הכנס/י את שם הסימנייה בביקור הבא להמשך קריאה מהמקום בו עצרת.</p>
         </div>
+        <button class="bm-btn-close" aria-label="סגור">
+          <svg viewBox="0 0 24 24"><path d="M6 6L18 18M18 6L6 18"/></svg>
+        </button>
 
         <div class="bm-step bm-step-icon">
           <div class="bm-step-label"><span class="bm-step-num">1.</span> בחר/י אייקון</div>
           <div class="bm-slider-row">
             <button class="bm-slider-arrow bm-prev" aria-label="הקודם">
-              <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+              <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
             </button>
             <div class="bm-slider-viewport">
               <div class="bm-slider-track" data-role="track"></div>
             </div>
             <button class="bm-slider-arrow bm-next" aria-label="הבא">
-              <svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
+              <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
             </button>
           </div>
+          <div class="bm-preview" data-role="preview"></div>
         </div>
 
         <div class="bm-step bm-step-name">
@@ -435,6 +439,9 @@
     loadDefaultsForTheme(pickedTheme);
 
     // ---- Render helpers ----
+    const previewEl = el.querySelector('[data-role="preview"]');
+    const viewportEl = el.querySelector('.bm-slider-viewport');
+
     function renderTrack() {
       trackEl.innerHTML = ICONS.map((icon) => `
         <div class="bm-slider-item ${icon.id === pickedIconId ? 'selected' : ''}"
@@ -451,25 +458,79 @@
           if (!nameDirty) {
             nameInput.value = iconById(pickedIconId).name_default;
           }
+          refreshPreview();
+          // Center the clicked icon in the slider viewport
+          const idx = ICONS.findIndex((i) => i.id === pickedIconId);
+          centerOnIndex(idx);
           refreshConfirm();
         });
       });
     }
-    function pageOffsetPx(n) {
-      // Works in both LTR and RTL because we translate by a positive number
-      // and the track is always laid out in DOM order; in RTL flex the first
-      // item sits at the right, so a positive translateX reveals later items
-      // from the left.
+    function refreshPreview() {
+      if (!previewEl) return;
+      const icon = iconById(pickedIconId);
+      previewEl.style.setProperty('--bm-color', icon.color);
+      previewEl.innerHTML = renderIconGlyph(icon);
+      previewEl.classList.add('has-icon');
+    }
+    function trackGapPx() {
+      // Read the actual gap from CSS so JS math matches what the user sees,
+      // even if mobile sets gap:0 and desktop sets gap:14px.
+      const cs = window.getComputedStyle(trackEl);
+      const g = parseFloat(cs.columnGap || cs.gap || '0');
+      return Number.isFinite(g) ? g : SLIDER_GAP_PX;
+    }
+    function pageOffsetPx(firstIdx) {
+      // LTR track: item 0 sits at the LEFT, so we translate the track by a
+      // NEGATIVE pixel amount to slide later items into the viewport.
       const firstItem = trackEl.querySelector('.bm-slider-item');
       if (!firstItem) return 0;
       const itemW = firstItem.getBoundingClientRect().width;
-      const pageW = (itemW + SLIDER_GAP_PX) * ICONS_PER_PAGE;
-      return n * pageW;
+      return -(firstIdx * (itemW + trackGapPx()));
+    }
+    function maxFirstVisible() {
+      return Math.max(0, ICONS.length - getIconsPerPage());
     }
     function refreshSlider() {
-      trackEl.style.transform = `translateX(${pageOffsetPx(page)}px)`;
+      if (isMobile()) {
+        // Mobile uses native scroll-snap; clear any inline transform.
+        trackEl.style.transform = '';
+      } else {
+        trackEl.style.transform = `translateX(${pageOffsetPx(firstVisible)}px)`;
+      }
       prevBtn.disabled = false;
       nextBtn.disabled = false;
+    }
+    function centerOnIndex(idx) {
+      if (isMobile()) {
+        const item = trackEl.querySelectorAll('.bm-slider-item')[idx];
+        if (item && item.scrollIntoView) {
+          item.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        }
+        return;
+      }
+      const perPage = getIconsPerPage();
+      const max = maxFirstVisible();
+      const offset = Math.floor((perPage - 1) / 2);
+      firstVisible = Math.max(0, Math.min(max, idx - offset));
+      refreshSlider();
+    }
+    function showSelectedAtLeft() {
+      const idx = ICONS.findIndex((i) => i.id === pickedIconId);
+      if (idx < 0) return;
+      if (isMobile()) {
+        // On mobile, scroll the viewport so the selected icon is at the left
+        // edge of the visible area (clamped so we don't overscroll past end).
+        const item = trackEl.querySelectorAll('.bm-slider-item')[idx];
+        if (item && viewportEl) {
+          const itemRect = item.getBoundingClientRect();
+          const trackRect = trackEl.getBoundingClientRect();
+          viewportEl.scrollLeft = itemRect.left - trackRect.left;
+        }
+        return;
+      }
+      firstVisible = Math.max(0, Math.min(maxFirstVisible(), idx));
+      refreshSlider();
     }
     function refreshConfirm() {
       // Rule: V enabled only when the user picked a (different) icon OR edited the name.
@@ -490,8 +551,18 @@
 
     // ---- Wire events ----
     closeBtn.addEventListener('click', closeModal);
-    prevBtn.addEventListener('click', () => { page = (page - 1 + pages) % pages; refreshSlider(); });
-    nextBtn.addEventListener('click', () => { page = (page + 1) % pages; refreshSlider(); });
+    prevBtn.addEventListener('click', () => {
+      // Step back one page; clamp at 0 (no wrap, since selected icon may be
+      // anywhere in the list and wrapping past 0 would feel disorienting).
+      const perPage = getIconsPerPage();
+      firstVisible = Math.max(0, firstVisible - perPage);
+      refreshSlider();
+    });
+    nextBtn.addEventListener('click', () => {
+      const perPage = getIconsPerPage();
+      firstVisible = Math.min(maxFirstVisible(), firstVisible + perPage);
+      refreshSlider();
+    });
 
     nameInput.value = initialName;
     nameInput.addEventListener('input', () => {
@@ -553,15 +624,23 @@
 
     // ---- Kick off ----
     renderTrack();
+    refreshPreview();
     showModal(el);
     // Slider offsets depend on laid-out widths, so compute after first paint
-    requestAnimationFrame(refreshSlider);
+    requestAnimationFrame(() => {
+      // Open with the selected/default icon at the left edge of the slider.
+      showSelectedAtLeft();
+    });
 
     const onResize = () => {
       if (!document.body.contains(el)) {
         window.removeEventListener('resize', onResize);
         return;
       }
+      // On viewport changes, re-anchor the visible icons (mobile↔desktop
+      // breakpoint flips change items-per-page).
+      const max = maxFirstVisible();
+      if (firstVisible > max) firstVisible = max;
       refreshSlider();
     };
     window.addEventListener('resize', onResize);
